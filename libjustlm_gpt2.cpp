@@ -34,7 +34,6 @@ Inference::~Inference() {
 
 void Inference::append(std::string_view prompt, const std::function<bool (float)> &on_tick) {
     state->prompt.append(prompt);
-    std::cout << prompt << std::endl;
 }
 
 std::string Inference::run(std::string_view end, const std::function<bool (const char *)> &on_tick) {

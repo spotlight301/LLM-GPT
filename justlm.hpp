@@ -10,20 +10,6 @@
 
 namespace LM {
 class Inference {
-    struct {
-        int32_t seed; // RNG seed
-        int32_t n_threads = static_cast<int32_t>(std::thread::hardware_concurrency()) / 2;
-        union {
-            int32_t n_ctx; // Context size, llama.cpp specific
-            int32_t n_prompt = -1; // Prompt size, gpt2 specific
-        };
-        int32_t n_batch = 8; // Batch size, unused
-
-        int32_t top_k = 40;
-        float   top_p = 0.5f;
-        float   temp  = 0.72f;
-    } params;
-
     struct State *state;
 
     void init(const std::string& weights_path);
@@ -38,6 +24,20 @@ public:
     struct ContextLengthException : public Exception {
         ContextLengthException() : Exception("Max. context length exceeded") {}
     };
+
+    struct Params {
+        int32_t seed; // RNG seed
+        int32_t n_threads = static_cast<int32_t>(std::thread::hardware_concurrency()) / 2;
+        union {
+            int32_t n_ctx; // Context size, llama.cpp specific
+            int32_t n_prompt = -1; // Prompt size, gpt2 specific
+        };
+        int32_t n_batch = 8; // Batch size, unused
+
+        int32_t top_k = 40;
+        float   top_p = 0.5f;
+        float   temp  = 0.72f;
+    } params;
 
     Inference(const std::string& weights_path, int32_t seed = 0) {
         // Set random seed
