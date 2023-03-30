@@ -8,7 +8,8 @@
 #include <thread>
 
 
-class LLM {
+namespace LM {
+class Inference {
     struct {
         int32_t seed; // RNG seed
         int32_t n_threads = static_cast<int32_t>(std::thread::hardware_concurrency()) / 2;
@@ -38,17 +39,18 @@ public:
         ContextLengthException() : Exception("Max. context length exceeded") {}
     };
 
-    LLM(const std::string& weights_path, int32_t seed = 0) {
+    Inference(const std::string& weights_path, int32_t seed = 0) {
         // Set random seed
         params.seed = seed?seed:time(NULL);
 
         // Initialize llm
         init(weights_path);
     }
-    ~LLM();
+    ~Inference();
 
     void append(std::string_view prompt, const std::function<bool (float progress)>& on_tick = nullptr);
 
     std::string run(std::string_view end, const std::function<bool (const char *generated)>& on_tick = nullptr);
 };
+}
 #endif // LLM_H

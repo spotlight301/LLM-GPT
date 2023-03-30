@@ -4,6 +4,8 @@
 
 
 
-bool LLM::ends_with(std::string_view str, std::string_view suffix) {
+namespace LM {
+bool Inference::ends_with(std::string_view str, std::string_view suffix) {
     return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
+}
 }

@@ -4,6 +4,7 @@
 #include <llama.h>
 
 
+namespace LM {
 struct State {
     llama_context *ctx = nullptr;
     std::string prompt;
@@ -14,7 +15,7 @@ struct State {
 
 
 
-void LLM::init(const std::string& weights_path) {
+void Inference::init(const std::string& weights_path) {
     // Allocate state
     state = new State;
 
@@ -33,12 +34,12 @@ void LLM::init(const std::string& weights_path) {
     state->n_ctx = llama_n_ctx(state->ctx);
 }
 
-LLM::~LLM() {
+Inference::~Inference() {
     if (state->ctx) llama_free(state->ctx);
     delete state;
 }
 
-void LLM::append(std::string_view prompt, const std::function<bool (float)> &on_tick) {
+void Inference::append(std::string_view prompt, const std::function<bool (float)> &on_tick) {
     // Check if prompt was empty
     const bool was_empty = state->prompt.empty();
 
@@ -77,7 +78,7 @@ void LLM::append(std::string_view prompt, const std::function<bool (float)> &on_
     std::cout << std::endl;
 }
 
-std::string LLM::run(std::string_view end, const std::function<bool (const char *)> &on_tick) {
+std::string Inference::run(std::string_view end, const std::function<bool (const char *)> &on_tick) {
     std::string fres;
 
     // Loop until done
@@ -112,4 +113,5 @@ std::string LLM::run(std::string_view end, const std::function<bool (const char 
 
     // Return final string
     return fres;
+}
 }

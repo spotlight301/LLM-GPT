@@ -5,6 +5,7 @@
 #include <cstring>
 
 
+namespace LM {
 struct State {
     std::string prompt;
     std::string model_path;
@@ -13,7 +14,7 @@ struct State {
 
 
 
-void LLM::init(const std::string& weights_path) {
+void Inference::init(const std::string& weights_path) {
     state->model_path = weights_path;
     // Get weight file size
     auto weights_size = std::filesystem::file_size(weights_path);
@@ -27,16 +28,16 @@ void LLM::init(const std::string& weights_path) {
     }
 }
 
-LLM::~LLM() {
+Inference::~Inference() {
     delete state;
 }
 
-void LLM::append(std::string_view prompt, const std::function<bool (float)> &on_tick) {
+void Inference::append(std::string_view prompt, const std::function<bool (float)> &on_tick) {
     state->prompt.append(prompt);
     std::cout << prompt << std::endl;
 }
 
-std::string LLM::run(std::string_view end, const std::function<bool (const char *)> &on_tick) {
+std::string Inference::run(std::string_view end, const std::function<bool (const char *)> &on_tick) {
     std::string fres;
     TextCompleteGlobalState *tcs;
     TextGenContext *ts;
@@ -77,4 +78,5 @@ std::string LLM::run(std::string_view end, const std::function<bool (const char 
 
     // Return final string
     return fres;
+}
 }
