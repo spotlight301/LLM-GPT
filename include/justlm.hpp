@@ -14,8 +14,10 @@ class Inference {
 
     void init(const std::string& weights_path);
 
-    static
-    bool ends_with(std::string_view str, std::string_view suffix);
+    static inline
+    bool ends_with(std::string_view str, std::string_view suffix) {
+        return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
+    }
 
 public:
     struct Exception : public std::runtime_error {
