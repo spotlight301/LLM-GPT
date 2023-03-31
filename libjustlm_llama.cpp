@@ -34,9 +34,17 @@ void Inference::init(const std::string& weights_path) {
     state->n_ctx = llama_n_ctx(state->ctx);
 }
 
+Inference::Inference(Inference&& o)
+    : params(o.params)
+    , state(o.state) {
+    o.state = nullptr;
+}
+
 Inference::~Inference() {
-    if (state->ctx) llama_free(state->ctx);
-    delete state;
+    if (state) {
+        if (state->ctx) llama_free(state->ctx);
+        delete state;
+    }
 }
 
 void Inference::append(std::string_view prompt, const std::function<bool (float)> &on_tick) {

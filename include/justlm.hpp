@@ -49,6 +49,9 @@ public:
         init(weights_path);
     }
     ~Inference();
+    Inference(const Inference&) = delete;
+    Inference(Inference&) = delete;
+    Inference(Inference&&);
 
     void append(std::string_view prompt, const std::function<bool (float progress)>& on_tick = nullptr);
 
