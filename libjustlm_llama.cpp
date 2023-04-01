@@ -23,6 +23,7 @@ void Inference::init(const std::string& weights_path) {
     auto lparams = llama_context_default_params();
     lparams.seed = params.seed;
     lparams.n_ctx = params.n_ctx = params.n_ctx>0?params.n_ctx:2024;
+    lparams.use_mlock = params.use_mlock;
 
     // Create context
     state->ctx = llama_init_from_file(weights_path.c_str(), lparams);
