@@ -28,8 +28,8 @@ public:
     };
 
     struct Params {
-        int32_t seed; // RNG seed
-        int32_t n_threads = static_cast<int32_t>(std::thread::hardware_concurrency()) / 2;
+        int32_t seed = 0; // RNG seed
+        int32_t n_threads = 0;
         union {
             int32_t n_ctx; // Context size, llama.cpp specific
             int32_t n_prompt = -1; // Prompt size, gpt2 specific
@@ -44,9 +44,10 @@ public:
         bool use_mlock = true; // llama.cpp specific
     } params;
 
-    Inference(const std::string& weights_path, int32_t seed = 0) {
+    Inference(const std::string& weights_path, const Params& p) : params(p) {
         // Set random seed
-        params.seed = seed?seed:time(NULL);
+        params.seed = params.seed?params.seed:time(NULL);
+        params.n_threads = params.n_threads?params.n_threads:(static_cast<int32_t>(std::thread::hardware_concurrency()) / 2);
 
         // Initialize llm
         init(weights_path);
