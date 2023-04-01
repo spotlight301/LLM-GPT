@@ -35,10 +35,12 @@ public:
             int32_t n_prompt = -1; // Prompt size, gpt2 specific
         };
         int32_t n_batch = 8; // Batch size, unused
+        int32_t n_repeat_last = 64;
 
         int32_t top_k = 40;
         float   top_p = 0.5f;
         float   temp  = 0.72f;
+        float repeat_penalty = 1.0f;
     } params;
 
     Inference(const std::string& weights_path, int32_t seed = 0) {
