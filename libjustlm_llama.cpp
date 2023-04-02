@@ -71,7 +71,7 @@ void Inference::append(std::string_view prompt, const std::function<bool (float)
 
     // Evaluate new tokens in batches
     int it = old_token_count;
-    for (; it < state->embd.size(); it += params.n_batch) {
+    for (; it < state->embd.size() - params.n_batch; it += params.n_batch) {
         llama_eval(state->ctx, state->embd.data()+it, params.n_batch, it, params.n_threads);
 
         // Tick
@@ -83,8 +83,10 @@ void Inference::append(std::string_view prompt, const std::function<bool (float)
         }
     }
     // Evaluate remaining tokens
-    if (it != state->embd.size()) {
-        llama_eval(state->ctx, state->embd.data()+it, state->embd.size()-it, it, params.n_threads);
+    if (it < state->embd.size()) {
+        for (; it != state->embd.size(); it++) {
+            llama_eval(state->ctx, state->embd.data()+it, 1, it, params.n_threads);
+        }
     }
 }
 
