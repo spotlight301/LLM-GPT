@@ -69,10 +69,10 @@ void Inference::append(std::string_view prompt, const std::function<bool (float)
         throw ContextLengthException();
     }
 
-    // Evaluate new tokens
-    // TODO: Larger batch size
-    for (int it = old_token_count; it != state->embd.size(); it++) {
-        llama_eval(state->ctx, state->embd.data()+it, 1, it, params.n_threads);
+    // Evaluate new tokens in batches
+    int it = old_token_count;
+    for (; it < state->embd.size(); it += params.n_batch) {
+        llama_eval(state->ctx, state->embd.data()+it, params.n_batch, it, params.n_threads);
 
         // Tick
         if (on_tick) {
@@ -81,6 +81,10 @@ void Inference::append(std::string_view prompt, const std::function<bool (float)
             // Run callback
             if (!on_tick(progress)) break;
         }
+    }
+    // Evaluate remaining tokens
+    if (it != state->embd.size()) {
+        llama_eval(state->ctx, state->embd.data()+it, state->embd.size()-it, it, params.n_threads);
     }
 }
 
