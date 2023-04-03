@@ -99,6 +99,11 @@ std::string Inference::run(std::string_view end, const std::function<bool (const
         // Sample top p and top k
         const auto id = llama_sample_top_p_top_k(state->ctx, state->embd.data()+state->embd.size()-params.n_repeat_last, params.n_repeat_last, params.top_k, params.top_p, params.temp, params.repeat_penalty);
 
+        if (id == llama_token_eos()) {
+            abort = true;
+            continue;
+        }
+
         // Add token
         state->embd.push_back(id);
 
@@ -118,7 +123,9 @@ std::string Inference::run(std::string_view end, const std::function<bool (const
 
     // Create final string  TODO: Could be optimized
     state->prompt.append(fres);
-    fres = std::string(fres.data(), fres.size()-end.size());
+    if (!abort) {
+        fres = std::string(fres.data(), fres.size()-end.size());
+    }
 
     // Return final string
     return fres;
