@@ -41,6 +41,8 @@ public:
         float   top_p = 0.5f;
         float   temp  = 0.72f;
         float repeat_penalty = 1.0f; // llama.cpp specific
+        unsigned eos_ignores = 0; // llama.cpp specific
+
         bool use_mlock = true; // llama.cpp specific
     } params;
 
