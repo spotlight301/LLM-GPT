@@ -11,7 +11,7 @@ namespace py = pybind11;
 PYBIND11_MODULE(libjustlm_py, m) {
     using namespace LM;
     py::class_<Inference>(m, "Inference")
-        .def(py::init<const std::string &, int32_t>(), py::arg("weights_path"), py::arg("seed") = 0)
+        .def(py::init<const std::string &, const Inference::Params&>(), py::arg("weights_path"), py::arg("params") = 0)
         .def("append", &Inference::append, py::arg("prompt"), py::arg("on_tick") = nullptr)
         .def("run", &Inference::run, py::arg("end"), py::arg("on_tick") = nullptr)
         .def_readwrite("params", &Inference::params);
@@ -21,7 +21,12 @@ PYBIND11_MODULE(libjustlm_py, m) {
         .def_readonly("n_ctx", &Inference::Params::n_ctx)
         .def_readonly("n_prompt", &Inference::Params::n_prompt)
         .def_readwrite("n_batch", &Inference::Params::n_batch)
+        .def_readwrite("n_repeat_last", &Inference::Params::n_repeat_last)
+        .def_readwrite("repeat_penalty", &Inference::Params::repeat_penalty)
         .def_readwrite("top_k", &Inference::Params::top_k)
         .def_readwrite("top_p", &Inference::Params::top_p)
-        .def_readwrite("temp", &Inference::Params::temp);
+        .def_readwrite("temp", &Inference::Params::temp)
+        .def_readwrite("repeat_penalty", &Inference::Params::repeat_penalty)
+        .def_readwrite("eos_ignores", &Inference::Params::eos_ignores)
+        .def_readwrite("use_mlock", &Inference::Params::use_mlock);
 }
