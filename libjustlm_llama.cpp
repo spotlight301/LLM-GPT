@@ -98,7 +98,7 @@ std::string Inference::run(std::string_view end, const std::function<bool (const
     unsigned eos_count = 0;
     while (!abort && !ends_with(fres, end)) {
         // Sample top p and top k
-        const auto id = llama_sample_top_p_top_k(state->ctx, state->embd.data()+state->embd.size()-params.n_repeat_last, params.n_repeat_last, params.top_k, params.top_p, params.temp, params.repeat_penalty);
+        const auto id = llama_sample_top_p_top_k(state->ctx, params.n_repeat_last?(state->embd.data()+state->embd.size()-params.n_repeat_last):nullptr, params.n_repeat_last, params.top_k, params.top_p, params.temp, params.repeat_penalty);
 
         if (id == llama_token_eos()) {
             if (eos_count++ == params.eos_ignores) {
