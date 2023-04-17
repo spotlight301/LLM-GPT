@@ -1,5 +1,6 @@
 #include "justlm.hpp"
 
+#include <cstring>
 #include <ggml.h>
 #include <llama.h>
 
@@ -10,7 +11,6 @@ struct State {
     std::string prompt;
     std::vector<int> embd;
     int n_ctx;
-    std::string last_result;
 } state;
 
 
@@ -49,6 +49,8 @@ Inference::~Inference() {
 }
 
 void Inference::append(std::string_view prompt, const std::function<bool (float)> &on_tick) {
+    std::cout << prompt << std::endl;
+
     // Check if prompt was empty
     const bool was_empty = state->prompt.empty();
 
@@ -132,5 +134,17 @@ std::string Inference::run(std::string_view end, const std::function<bool (const
 
     // Return final string
     return fres;
+}
+
+void Inference::create_savestate(Savestate &sv) {
+    sv.kv.resize(llama_get_kv_cache_size(state->ctx));
+    std::memcpy(sv.kv.data(), llama_get_kv_cache(state->ctx), sv.kv.size());
+    sv.token_count = state->embd.size();
+    sv.ctx = reinterpret_cast<void*>(state->ctx);
+}
+void Inference::restore_savestate(const Savestate &sv) {
+    if (sv.ctx != reinterpret_cast<void*>(state->ctx))
+        throw Exception("Savestate does not match context");
+    llama_set_kv_cache(state->ctx, sv.kv.data(), sv.kv.size(), sv.token_count);
 }
 }

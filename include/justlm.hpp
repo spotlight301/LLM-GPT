@@ -46,6 +46,12 @@ public:
         bool use_mlock = true; // llama.cpp specific
     } params;
 
+    struct Savestate {
+        std::vector<uint8_t> kv;
+        unsigned token_count;
+        void *ctx;
+    };
+
     Inference(const std::string& weights_path, const Params& p) : params(p) {
         // Set random seed
         params.seed = params.seed?params.seed:time(NULL);
@@ -62,6 +68,9 @@ public:
     void append(std::string_view prompt, const std::function<bool (float progress)>& on_tick = nullptr);
 
     std::string run(std::string_view end, const std::function<bool (const char *generated)>& on_tick = nullptr);
+
+    void create_savestate(Savestate&);
+    void restore_savestate(const Savestate&);
 };
 }
 #endif // LLM_H
