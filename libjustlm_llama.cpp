@@ -144,5 +144,6 @@ void Inference::restore_savestate(const Savestate &sv) {
     if (sv.ctx != reinterpret_cast<void*>(state->ctx))
         throw Exception("Savestate does not match context");
     llama_set_kv_cache(state->ctx, sv.kv.data(), sv.kv.size(), sv.token_count);
+    state->embd.resize(sv.token_count);
 }
 }
