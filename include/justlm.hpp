@@ -49,7 +49,11 @@ public:
     struct Savestate {
         std::vector<uint8_t> kv;
         unsigned token_count;
-        void *ctx;
+        void *ctx = nullptr;
+
+        bool is_valid() const {
+            return ctx != nullptr;
+        }
     };
 
     Inference(const std::string& weights_path, const Params& p) : params(p) {
