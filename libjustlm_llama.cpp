@@ -49,8 +49,6 @@ Inference::~Inference() {
 }
 
 void Inference::append(std::string_view prompt, const std::function<bool (float)> &on_tick) {
-    std::cout << prompt << std::endl;
-
     // Check if prompt was empty
     const bool was_empty = state->prompt.empty();
 
