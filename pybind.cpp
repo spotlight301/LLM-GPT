@@ -28,10 +28,10 @@ PYBIND11_MODULE(libjustlm_py, m) {
     py::class_<Inference>(m, "Inference")
         .def(py::init<const std::string &, const Inference::Params&>(), py::arg("weights_path"), py::arg("params") = Inference::Params())
         .def("append", &Inference::append, py::arg("prompt"), py::arg("on_tick") = nullptr)
-        .def("run", &Inference::run, py::arg("end"), py::arg("on_tick") = nullptr)
+        .def("run", &Inference::run, py::arg("end") = "", py::arg("on_tick") = nullptr)
         .def("create_savestate", &Inference::create_savestate)
         .def("restore_savestate", &Inference::restore_savestate)
         .def_readwrite("params", &Inference::params);
     py::class_<Inference::Savestate>(m, "Savestate")
-            .def(py::init<>());
+        .def(py::init<>());
 }

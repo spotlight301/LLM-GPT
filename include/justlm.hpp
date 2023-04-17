@@ -16,6 +16,7 @@ class Inference {
 
     static inline
     bool ends_with(std::string_view str, std::string_view suffix) {
+        if (suffix.empty()) return false;
         return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
     }
 
@@ -71,7 +72,7 @@ public:
 
     void append(std::string_view prompt, const std::function<bool (float progress)>& on_tick = nullptr);
 
-    std::string run(std::string_view end, const std::function<bool (const char *generated)>& on_tick = nullptr);
+    std::string run(std::string_view end = "", const std::function<bool (const char *generated)>& on_tick = nullptr);
 
     void create_savestate(Savestate&);
     void restore_savestate(const Savestate&);
