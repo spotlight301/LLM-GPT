@@ -31,6 +31,7 @@ PYBIND11_MODULE(libjustlm_py, m) {
         .def("run", &Inference::run, py::arg("end") = "", py::arg("on_tick") = nullptr)
         .def("create_savestate", &Inference::create_savestate)
         .def("restore_savestate", &Inference::restore_savestate)
+        .def("get_prompt", &Inference::get_prompt)
         .def_readwrite("params", &Inference::params);
     py::class_<Inference::Savestate>(m, "Savestate")
         .def(py::init<>());

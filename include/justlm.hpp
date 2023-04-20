@@ -77,6 +77,8 @@ public:
 
     void create_savestate(Savestate&);
     void restore_savestate(const Savestate&);
+
+    const std::string& get_prompt() const;
 };
 }
 #endif // LLM_H

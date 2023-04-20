@@ -148,4 +148,8 @@ void Inference::restore_savestate(const Savestate &sv) {
     state->embd.resize(sv.token_count);
     state->prompt = sv.prompt;
 }
+
+const std::string &Inference::get_prompt() const {
+    return state->prompt;
+}
 }
