@@ -50,6 +50,7 @@ public:
     struct Savestate {
         std::vector<uint8_t> kv;
         unsigned token_count;
+        std::string prompt;
         void *ctx = nullptr;
 
         bool is_valid() const {

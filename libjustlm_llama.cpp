@@ -138,6 +138,7 @@ void Inference::create_savestate(Savestate &sv) {
     sv.kv.resize(llama_get_kv_cache_size(state->ctx));
     std::memcpy(sv.kv.data(), llama_get_kv_cache(state->ctx), sv.kv.size());
     sv.token_count = state->embd.size();
+    sv.prompt = state->prompt;
     sv.ctx = reinterpret_cast<void*>(state->ctx);
 }
 void Inference::restore_savestate(const Savestate &sv) {
@@ -145,5 +146,6 @@ void Inference::restore_savestate(const Savestate &sv) {
         throw Exception("Savestate does not match context");
     llama_set_kv_cache(state->ctx, sv.kv.data(), sv.kv.size(), sv.token_count);
     state->embd.resize(sv.token_count);
+    state->prompt = sv.prompt;
 }
 }
