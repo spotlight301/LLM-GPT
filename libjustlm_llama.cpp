@@ -1,5 +1,7 @@
 #include "justlm.hpp"
 
+#include <bit>
+#include <cassert>
 #include <cstring>
 #include <ggml.h>
 #include <llama.h>
@@ -8,8 +10,8 @@
 namespace LM {
 struct State {
     llama_context *ctx = nullptr;
-    std::string prompt;
-    std::vector<int> embd;
+    std::string prompt; // Mostly here for easy "debugging"
+    std::vector<int> tokens;
     int n_ctx;
 } state;
 
@@ -56,36 +58,36 @@ void Inference::append(std::string_view prompt, const std::function<bool (float)
     state->prompt.append(prompt);
 
     // Resize buffer for tokens
-    const auto old_token_count = state->embd.size();
-    state->embd.resize(old_token_count+state->prompt.size()+1);
+    const auto old_token_count = state->tokens.size();
+    state->tokens.resize(old_token_count+state->prompt.size()+1);
 
     // Run tokenizer
-    const auto token_count = llama_tokenize(state->ctx, prompt.data(), state->embd.data()+old_token_count, state->embd.size()-old_token_count, was_empty);
-    state->embd.resize(old_token_count+token_count);
+    const auto token_count = llama_tokenize(state->ctx, prompt.data(), state->tokens.data()+old_token_count, state->tokens.size()-old_token_count, was_empty);
+    state->tokens.resize(old_token_count+token_count);
 
     // Make sure limit is far from being hit
-    if (state->embd.size() > state->n_ctx-6) {
+    if (state->tokens.size() > state->n_ctx-6) {
         // Yup. *this MUST be decomposed now.
         throw ContextLengthException();
     }
 
     // Evaluate new tokens in batches
     int it;
-    for (it = old_token_count; it < state->embd.size() - params.n_batch; it += params.n_batch) {
-        llama_eval(state->ctx, state->embd.data()+it, params.n_batch, it, params.n_threads);
+    for (it = old_token_count; it < state->tokens.size() - params.n_batch; it += params.n_batch) {
+        llama_eval(state->ctx, state->tokens.data()+it, params.n_batch, it, params.n_threads);
 
         // Tick
         if (on_tick) {
             // Calculate progress
-            auto progress = float(it-old_token_count) / (state->embd.size()-old_token_count) * 100.f;
+            auto progress = float(it-old_token_count) / (state->tokens.size()-old_token_count) * 100.f;
             // Run callback
             if (!on_tick(progress)) break;
         }
     }
     // Evaluate remaining tokens
-    if (it < state->embd.size()) {
-        for (; it != state->embd.size(); it++) {
-            llama_eval(state->ctx, state->embd.data()+it, 1, it, params.n_threads);
+    if (it < state->tokens.size()) {
+        for (; it != state->tokens.size(); it++) {
+            llama_eval(state->ctx, state->tokens.data()+it, 1, it, params.n_threads);
         }
     }
 }
@@ -98,7 +100,7 @@ std::string Inference::run(std::string_view end, const std::function<bool (const
     unsigned eos_count = 0;
     while (!abort && !ends_with(fres, end)) {
         // Sample top p and top k
-        const auto id = llama_sample_top_p_top_k(state->ctx, params.n_repeat_last?(state->embd.data()+state->embd.size()-params.n_repeat_last):nullptr, params.n_repeat_last, params.top_k, params.top_p, params.temp, params.repeat_penalty);
+        const auto id = llama_sample_top_p_top_k(state->ctx, params.n_repeat_last?(state->tokens.data()+state->tokens.size()-params.n_repeat_last):nullptr, params.n_repeat_last, params.top_k, params.top_p, params.temp, params.repeat_penalty);
 
         if (id == llama_token_eos()) {
             if (eos_count++ == params.eos_ignores) {
@@ -108,7 +110,7 @@ std::string Inference::run(std::string_view end, const std::function<bool (const
         }
 
         // Add token
-        state->embd.push_back(id);
+        state->tokens.push_back(id);
 
         // Get token as string
         const auto str = llama_token_to_str(state->ctx, id);
@@ -118,7 +120,7 @@ std::string Inference::run(std::string_view end, const std::function<bool (const
 
         // Evaluate token
         //  TODO: Respect batch size
-        llama_eval(state->ctx, state->embd.data()+state->embd.size()-1, 1, state->embd.size()-1, params.n_threads);
+        llama_eval(state->ctx, state->tokens.data()+state->tokens.size()-1, 1, state->tokens.size()-1, params.n_threads);
 
         // Tick
         if (on_tick && !on_tick(str)) abort = true;
@@ -134,10 +136,10 @@ std::string Inference::run(std::string_view end, const std::function<bool (const
     return fres;
 }
 
-void Inference::create_savestate(Savestate &sv) {
+void Inference::create_savestate(Savestate &sv) const {
     sv.kv.resize(llama_get_kv_cache_size(state->ctx));
     std::memcpy(sv.kv.data(), llama_get_kv_cache(state->ctx), sv.kv.size());
-    sv.token_count = state->embd.size();
+    sv.token_count = state->tokens.size();
     sv.prompt = state->prompt;
     sv.ctx = reinterpret_cast<void*>(state->ctx);
 }
@@ -145,8 +147,61 @@ void Inference::restore_savestate(const Savestate &sv) {
     if (sv.ctx != reinterpret_cast<void*>(state->ctx))
         throw Exception("Savestate does not match context");
     llama_set_kv_cache(state->ctx, sv.kv.data(), sv.kv.size(), sv.token_count);
-    state->embd.resize(sv.token_count);
+    state->tokens.resize(sv.token_count);
     state->prompt = sv.prompt;
+}
+
+void Inference::serialize(std::ostream &o) const {
+    // Get kv size
+    auto kv_size = llama_get_kv_cache_size(state->ctx);
+    // Write sizes
+    for (const uint32_t s : {size_t(state->n_ctx), state->tokens.size(), state->prompt.size(), kv_size}) {
+        if (!o.write(reinterpret_cast<const char*>(&s), sizeof(s))) {
+            throw Exception("Failed to serialize data sizes");
+        }
+    }
+    // Write tokens
+    if (!o.write(reinterpret_cast<const char*>(state->tokens.data()), state->tokens.size()*sizeof(int))) {
+        throw Exception("Failed to serialize tokens");
+    }
+    // Write prompt
+    if (!o.write(state->prompt.data(), state->prompt.size())) {
+        throw Exception("Failed to serialize prompt");
+    }
+    // Write kv
+    std::vector<uint8_t> kv(kv_size);
+    std::memcpy(kv.data(), llama_get_kv_cache(state->ctx), kv.size());
+    if (!o.write(reinterpret_cast<const char*>(kv.data()), kv.size())) {
+        throw Exception("Failed to serialize kv");
+    }
+}
+void Inference::deserialize(std::istream &i) {
+    uint32_t n_ctx, embd_size, prompt_size, kv_size;
+    // Initialization to prevent compiler complaints
+    n_ctx = embd_size = prompt_size = kv_size = 0;
+    // Read sizes
+    for (uint32_t *s : {&n_ctx, &embd_size, &prompt_size, &kv_size}) {
+        if (!i.read(reinterpret_cast<char*>(&s), sizeof(s))) {
+            throw Exception("Failed to deserialize data sizes");
+        }
+    }
+    state->n_ctx = n_ctx;
+    // Read tokens
+    state->tokens.resize(embd_size);
+    if (!i.read(reinterpret_cast<char*>(state->tokens.data()), state->tokens.size()*sizeof(int))) {
+        throw Exception("Failed to deserialize tokens");
+    }
+    // Read prompt
+    state->prompt.resize(prompt_size);
+    if (!i.read(state->prompt.data(), state->prompt.size())) {
+        throw Exception("Failed to deserialize prompt");
+    }
+    // Read kv
+    std::vector<uint8_t> kv(kv_size);
+    if (!i.read(reinterpret_cast<char*>(kv.data()), kv.size())) {
+        throw Exception("Failed to deserialize kv");
+    }
+    llama_set_kv_cache(state->ctx, kv.data(), kv.size(), embd_size);
 }
 
 const std::string &Inference::get_prompt() const {
