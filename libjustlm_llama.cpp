@@ -1,7 +1,6 @@
 #include "justlm.hpp"
 
 #include <bit>
-#include <cassert>
 #include <cstring>
 #include <ggml.h>
 #include <llama.h>

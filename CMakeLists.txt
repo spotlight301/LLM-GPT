@@ -9,7 +9,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(LM_PYBIND No CACHE BOOL "If python bindings should be build")
 
 add_subdirectory(llama.cpp)
-add_library(libjustlm STATIC include/justlm.hpp libjustlm_llama.cpp)
+add_library(libjustlm STATIC include/justlm.hpp include/justlm_pool.hpp libjustlm_llama.cpp)
 target_link_libraries(libjustlm PRIVATE llama)
 
 

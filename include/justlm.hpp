@@ -1,5 +1,5 @@
-#ifndef LLM_H
-#define LLM_H
+#ifndef JUSTLM_HPP
+#define JUSTLM_HPP
 #include <iostream>
 #include <string>
 #include <vector>
@@ -75,10 +75,13 @@ public:
 
     std::string run(std::string_view end = "", const std::function<bool (const char *generated)>& on_tick = nullptr);
 
-    void create_savestate(Savestate&);
+    void create_savestate(Savestate&) const;
     void restore_savestate(const Savestate&);
+
+    void serialize(std::ostream&) const;
+    void deserialize(std::istream&);
 
     const std::string& get_prompt() const;
 };
 }
-#endif // LLM_H
+#endif // JUSTLM_HPP
