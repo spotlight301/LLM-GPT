@@ -1,4 +1,5 @@
 #include "justlm.hpp"
+#include "justlm_pool.hpp"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -35,4 +36,15 @@ PYBIND11_MODULE(libjustlm_py, m) {
         .def_readwrite("params", &Inference::params);
     py::class_<Inference::Savestate>(m, "Savestate")
         .def(py::init<>());
+
+    py::class_<InferencePool>(m, "InferencePool")
+        .def(py::init<size_t, const std::string&, bool>(), py::arg("size"), py::arg("pool_name"), py::arg("clean_up") = true)
+        .def("create_inference", &InferencePool::create_inference, py::arg("id"), py::arg("weights_path"), py::arg("parameters"), py::return_value_policy::reference_internal)
+        .def("get_inference", &InferencePool::get_inference, py::arg("id"), py::return_value_policy::reference_internal)
+        .def("get_or_create_inference", &InferencePool::create_inference, py::arg("id"), py::arg("weights_path"), py::arg("parameters"), py::return_value_policy::reference_internal)
+        .def("delete_inference", &InferencePool::delete_inference, py::arg("id"))
+        .def("store_all", &InferencePool::store_all)
+        .def("set_store_on_destruct", &InferencePool::set_store_on_destruct)
+        .def("is_stored_on_destruction", &InferencePool::is_stored_on_destruction)
+        .def("get_active_slot_ids", &InferencePool::get_active_slot_ids);
 }

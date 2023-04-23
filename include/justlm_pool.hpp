@@ -216,6 +216,7 @@ public:
         if (slot) {
             return slot->get_inference(true);
         }
+        std::cout << "Slot NOT found" << std::endl;
         return {};
     }
     Inference &get_or_create_inference(size_t id, const std::string& weights_path, const Inference::Params& p) {
@@ -247,6 +248,14 @@ public:
     }
     bool is_stored_on_destruction() const {
         return store_on_destruct;
+    }
+
+    std::vector<size_t> get_active_slot_ids() const {
+        std::vector<size_t> fres;
+        for (const auto& slot : slots) {
+            fres.push_back(slot.get_id());
+        }
+        return fres;
     }
 };
 }

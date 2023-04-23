@@ -72,7 +72,10 @@ void Inference::append(std::string_view prompt, const std::function<bool (float)
 
     // Evaluate new tokens in batches
     int it;
-    for (it = old_token_count; it < state->tokens.size() - params.n_batch; it += params.n_batch) {
+    for (it = old_token_count; ; it += params.n_batch) {
+        if (it >= ssize_t(state->tokens.size()) - params.n_batch) break;
+
+        // Evaluate
         llama_eval(state->ctx, state->tokens.data()+it, params.n_batch, it, params.n_threads);
 
         // Tick
@@ -184,7 +187,9 @@ void Inference::deserialize(std::istream &i) {
             throw Exception("Failed to deserialize data sizes");
         }
     }
-    state->n_ctx = n_ctx;
+    if (state->n_ctx != n_ctx) {
+        throw Exception("Context length differs (My "+std::to_string(state->n_ctx)+" vs. files "+std::to_string(n_ctx)+')');
+    }
     // Read tokens
     state->tokens.resize(embd_size);
     if (!i.read(reinterpret_cast<char*>(state->tokens.data()), state->tokens.size()*sizeof(int))) {
