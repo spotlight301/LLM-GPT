@@ -168,9 +168,7 @@ void Inference::serialize(std::ostream &o) const {
         throw Exception("Failed to serialize prompt");
     }
     // Write kv
-    std::vector<uint8_t> kv(kv_size);
-    std::memcpy(kv.data(), llama_get_kv_cache(state->ctx), kv.size());
-    if (!o.write(reinterpret_cast<const char*>(kv.data()), kv.size())) {
+    if (!o.write(reinterpret_cast<const char*>(llama_get_kv_cache(state->ctx)), kv_size)) {
         throw Exception("Failed to serialize kv");
     }
 }
@@ -180,7 +178,7 @@ void Inference::deserialize(std::istream &i) {
     n_ctx = embd_size = prompt_size = kv_size = 0;
     // Read sizes
     for (uint32_t *s : {&n_ctx, &embd_size, &prompt_size, &kv_size}) {
-        if (!i.read(reinterpret_cast<char*>(&s), sizeof(s))) {
+        if (!i.read(reinterpret_cast<char*>(s), sizeof(*s))) {
             throw Exception("Failed to deserialize data sizes");
         }
     }

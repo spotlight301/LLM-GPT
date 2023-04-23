@@ -39,10 +39,10 @@ class InferencePool {
             this->id = id;
             this->weights_path = weights_path;
             inference = std::make_unique<Inference>(weights_path, p);
-            return get_inference();
+            return get_inference(true);
         }
-        Inference& get_inference() {
-            last_access = std::chrono::system_clock::now();
+        Inference& get_inference(bool update_last_access = false) {
+            if (update_last_access) last_access = std::chrono::system_clock::now();
             return *inference.get();
         }
 
@@ -102,7 +102,7 @@ class InferencePool {
         // Read weights path
         std::string weights_path;
         uint32_t weights_path_len;
-        if (!f.read(reinterpret_cast<char*>(weights_path_len), sizeof(weights_path_len))) {
+        if (!f.read(reinterpret_cast<char*>(&weights_path_len), sizeof(weights_path_len))) {
             return nullptr;
         }
         weights_path.resize(weights_path_len);
@@ -156,7 +156,7 @@ class InferencePool {
         // Attempt to find given slot while finding oldest one
         Slot *oldest = nullptr;
         for (auto& slot : slots) {
-            // Take free slot
+            // Take slot with ID
             if (slot.get_id() == id) {
                 return &slot;
             }
@@ -167,7 +167,14 @@ class InferencePool {
         }
         // Slot not found, attempt to load it
         if (deserialize) {
-            return load_slot(id, oldest);
+            if (!oldest->is_free()) store_slot(*oldest);
+            if (!load_slot(id, oldest)) {
+                // In case lot loading failed, still reset slot for later use
+                //TODO: Make this configurable
+                oldest->reset();
+            } else {
+                return oldest;
+            }
         }
         // Slot not found
         return nullptr;
@@ -207,9 +214,17 @@ public:
     std::optional<std::reference_wrapper<Inference>> get_inference(size_t id) {
         auto slot = find_slot_by_id(id);
         if (slot) {
-            return slot->get_inference();
+            return slot->get_inference(true);
         }
         return {};
+    }
+    Inference &get_or_create_inference(size_t id, const std::string& weights_path, const Inference::Params& p) {
+        auto slot = find_slot_by_id(id);
+        if (slot) {
+            return slot->get_inference(true);
+        }
+        slot = &get_free_slot();
+        return slot->create_inference(id, weights_path, p);
     }
     void delete_inference(size_t id) {
         auto slot = find_slot_by_id(id, false);
