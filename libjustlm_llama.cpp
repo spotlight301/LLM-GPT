@@ -151,10 +151,10 @@ void Inference::restore_savestate(const Savestate &sv) {
 }
 
 void Inference::serialize(std::ostream &o) const {
-    // Get kv size
-    auto kv_size = llama_get_kv_cache_size(state->ctx);
+    // Get state size
+    auto state_size = llama_get_state_size(state->ctx);
     // Write sizes
-    for (const uint32_t s : {size_t(state->n_ctx), state->tokens.size(), state->prompt.size(), kv_size}) {
+    for (const uint32_t s : {static_cast<size_t>(state->n_ctx), state->tokens.size(), state->prompt.size(), state_size}) {
         if (!o.write(reinterpret_cast<const char*>(&s), sizeof(s))) {
             throw Exception("Failed to serialize data sizes");
         }
@@ -167,17 +167,19 @@ void Inference::serialize(std::ostream &o) const {
     if (!o.write(state->prompt.data(), state->prompt.size())) {
         throw Exception("Failed to serialize prompt");
     }
-    // Write kv
-    if (!o.write(reinterpret_cast<const char*>(llama_get_kv_cache(state->ctx)), kv_size)) {
-        throw Exception("Failed to serialize kv");
+    // Write state
+    std::vector<uint8_t> state_buf(state_size);
+    llama_copy_state_data(state->ctx, state_buf.data());
+    if (!o.write(reinterpret_cast<const char*>(state_buf.data()), state_size)) {
+        throw Exception("Failed to serialize state");
     }
 }
 void Inference::deserialize(std::istream &i) {
-    uint32_t n_ctx, embd_size, prompt_size, kv_size;
+    uint32_t n_ctx, embd_size, prompt_size, state_size;
     // Initialization to prevent compiler complaints
-    n_ctx = embd_size = prompt_size = kv_size = 0;
+    n_ctx = embd_size = prompt_size = state_size = 0;
     // Read sizes
-    for (uint32_t *s : {&n_ctx, &embd_size, &prompt_size, &kv_size}) {
+    for (uint32_t *s : {&n_ctx, &embd_size, &prompt_size, &state_size}) {
         if (!i.read(reinterpret_cast<char*>(s), sizeof(*s))) {
             throw Exception("Failed to deserialize data sizes");
         }
@@ -193,12 +195,12 @@ void Inference::deserialize(std::istream &i) {
     if (!i.read(state->prompt.data(), state->prompt.size())) {
         throw Exception("Failed to deserialize prompt");
     }
-    // Read kv
-    std::vector<uint8_t> kv(kv_size);
-    if (!i.read(reinterpret_cast<char*>(kv.data()), kv.size())) {
-        throw Exception("Failed to deserialize kv");
+    // Read state
+    std::vector<uint8_t> state_buf(state_size);
+    if (!i.read(reinterpret_cast<char*>(state_buf.data()), state_buf.size())) {
+        throw Exception("Failed to deserialize state");
     }
-    llama_set_kv_cache(state->ctx, kv.data(), kv.size(), embd_size);
+    llama_set_state_data(state->ctx, state_buf.data());
 }
 
 const std::string &Inference::get_prompt() const {
