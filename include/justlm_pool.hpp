@@ -216,7 +216,6 @@ public:
         if (slot) {
             return slot->get_inference(true);
         }
-        std::cout << "Slot NOT found" << std::endl;
         return {};
     }
     Inference &get_or_create_inference(size_t id, const std::string& weights_path, const Inference::Params& p) {
