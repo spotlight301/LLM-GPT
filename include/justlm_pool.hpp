@@ -72,7 +72,7 @@ class InferencePool {
     bool store_slot(Slot& slot) {
         auto& inference = slot.get_inference();
         // Open output file
-        std::ofstream f(get_slot_filename(slot.get_id()));
+        std::ofstream f(get_slot_filename(slot.get_id()), std::ios::binary);
         // Write weights path
         auto weights_path = slot.get_weights_path();
         uint32_t weights_path_len = weights_path.size();
@@ -94,7 +94,7 @@ class InferencePool {
     // Returns nullptr on error
     Slot *load_slot(size_t id, Slot *suggested_slot = nullptr) {
         // Open input file
-        std::ifstream f(get_slot_filename(id));
+        std::ifstream f(get_slot_filename(id), std::ios::binary);
         if (!f) {
             // Does not exist
             return nullptr;
