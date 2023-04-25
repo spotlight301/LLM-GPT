@@ -238,6 +238,7 @@ public:
     }
     void store_all() {
         for (auto& slot : slots) {
+            if (slot.is_free()) continue;
             store_slot(slot);
         }
     }
