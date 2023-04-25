@@ -102,17 +102,20 @@ std::string Inference::run(std::string_view end, const std::function<bool (const
     unsigned eos_count = 0;
     while (!abort && !ends_with(fres, end)) {
         // Sample top p and top k
-        const auto id = llama_sample_top_p_top_k(state->ctx, params.n_repeat_last?(state->tokens.data()+state->tokens.size()-params.n_repeat_last):nullptr, params.n_repeat_last, params.top_k, params.top_p, params.temp, params.repeat_penalty);
+        auto id = llama_sample_top_p_top_k(state->ctx, params.n_repeat_last?(state->tokens.data()+state->tokens.size()-params.n_repeat_last):nullptr, params.n_repeat_last, params.top_k, params.top_p, params.temp, params.repeat_penalty);
 
         if (id == llama_token_eos()) {
             if (eos_count++ == params.eos_ignores) {
                 abort = true;
                 continue;
             }
+            state->tokens.push_back(0);
+            llama_tokenize(state->ctx, "\n", &state->tokens.back(), 1, false);
+            id = state->tokens.back();
+        } else {
+            // Add token
+            state->tokens.push_back(id);
         }
-
-        // Add token
-        state->tokens.push_back(id);
 
         // Get token as string
         const auto str = llama_token_to_str(state->ctx, id);
