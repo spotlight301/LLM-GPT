@@ -39,7 +39,7 @@ public:
         int32_t n_repeat_last = 0; // llama.cpp specific
 
         int32_t top_k = 40;
-        float   top_p = 0.5f;
+        float   top_p = 0.9f;
         float   temp  = 0.72f;
         float repeat_penalty = 1.0f; // llama.cpp specific
         unsigned eos_ignores = 0; // llama.cpp specific
