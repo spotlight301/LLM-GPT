@@ -1,17 +1,27 @@
+#ifndef JUSTLM_GPTJ_HPP
+#define JUSTLM_GPTJ_HPP
 #include "justlm.hpp"
 
+#include <fstream>
+#include <random>
 #include <cstring>
-#include <ggml.h>
-#include <llama.h>
+#include "gptj/gptj.hpp"
+#include "gptj/utils.hpp"
 
 
 namespace LM {
-class LLaMaInference final : public Inference {
+class GPTJInference final : public Inference {
     struct State {
-        llama_context *ctx = nullptr;
+        gpt_vocab vocab;
+        gptj_model model;
         std::string prompt; // Mostly here for easy "debugging"
         std::vector<int> tokens;
+        std::vector<float> logits;
+        size_t mem_per_token;
+        std::mt19937 rng;
         int n_ctx;
+
+        State(int32_t seed) : rng(seed) {}
     };
 
     State*& get_state() {
@@ -21,37 +31,32 @@ class LLaMaInference final : public Inference {
         return *reinterpret_cast<State* const*>(&generic_state);
     }
 
-    void init(const std::string& weights_path) {
+    void init(const std::string& weights_path, std::ifstream& f) {
         auto& state = get_state();
 
         // Allocate state
-        state = new State;
+        state = new State(params.seed);
 
-        // Get llama parameters
-        auto lparams = llama_context_default_params();
-        lparams.seed = params.seed;
-        lparams.n_ctx = params.n_ctx = params.n_ctx>0?params.n_ctx:2024;
-        lparams.use_mlock = params.use_mlock;
-
-        // Create context
-        state->ctx = llama_init_from_file(weights_path.c_str(), lparams);
-        if (!state->ctx) {
-            throw Exception("Failed to initialize llama from file");
+        // Load model
+        if (!gptj_model_load(weights_path, f, state->model, state->vocab)) {
+            throw Exception("GPT-J ERROR: failed to load model from "+weights_path);
         }
 
-        // Initialize some variables
-        state->n_ctx = llama_n_ctx(state->ctx);
+        // Calculate memory required per token
+        static std::vector<gpt_vocab::id> p_instruct;
+        static std::vector<gpt_vocab::id> r_instruct;
+        gptj_eval(state->model, params.n_threads, 0, { 0, 1, 2, 3 }, state->logits, state->mem_per_token);
     }
 
 public:
-    LLaMaInference(const std::string& weights_path, const Params& p) : Inference(p) {
-        init(weights_path);
+    GPTJInference(const std::string& weights_path, std::ifstream& f, const Params& p) : Inference(p) {
+        init(weights_path, f);
     }
-    ~LLaMaInference() override {
+    ~GPTJInference() override {
         auto& state = get_state();
 
         if (state) {
-            if (state->ctx) llama_free(state->ctx);
+            if (state->model.ctx) ggml_free(state->model.ctx); //TODO: Is that enough?
             delete state;
         }
     }
@@ -69,9 +74,13 @@ public:
         const auto old_token_count = state->tokens.size();
         state->tokens.reserve(old_token_count+(state->prompt.size()/4));
 
-        // Run tokenizer                                          .data() <-- this may be a serious issue!!!
-        const auto token_count = llama_tokenize(state->ctx, prompt.data(), state->tokens.data()+old_token_count, state->tokens.size()-old_token_count, was_empty);
-        state->tokens.resize(old_token_count+token_count);
+        // Run tokenizer
+        const auto tokens = gpt_tokenize(state->vocab, std::string(prompt));
+        state->tokens.insert(
+                    state->tokens.end(),
+                    std::make_move_iterator(tokens.begin()),
+                    std::make_move_iterator(tokens.end())
+        );
 
         // Make sure limit is far from being hit
         if (state->tokens.size() > state->n_ctx-6) {
@@ -85,7 +94,8 @@ public:
             if (it >= ssize_t(state->tokens.size()) - params.n_batch) break;
 
             // Evaluate
-            llama_eval(state->ctx, state->tokens.data()+it, params.n_batch, it, params.n_threads);
+            std::vector<int> batch(state->tokens.begin()+it, state->tokens.begin()+it+params.n_batch);
+            gptj_eval(state->model, params.n_threads, it, batch, state->logits, state->mem_per_token);
 
             // Tick
             if (on_tick) {
@@ -98,7 +108,9 @@ public:
         // Evaluate remaining tokens
         if (it < state->tokens.size()) {
             for (; it != state->tokens.size(); it++) {
-                llama_eval(state->ctx, state->tokens.data()+it, 1, it, params.n_threads);
+                //TODO: This is extremely inefficient! Don't do that...
+                std::vector<int> batch(state->tokens.begin()+it, state->tokens.begin()+it+1);
+                gptj_eval(state->model, params.n_threads, it, batch, state->logits, state->mem_per_token);
             }
         }
     }
@@ -112,33 +124,33 @@ public:
         unsigned eos_count = 0;
         while (!abort && !ends_with(fres, end)) {
             // Sample top p and top k
-            auto id = llama_sample_top_p_top_k(state->ctx, params.n_repeat_last?(state->tokens.data()+state->tokens.size()-params.n_repeat_last):nullptr, params.n_repeat_last, params.top_k, params.top_p, params.temp, params.repeat_penalty);
+            auto id = gpt_sample_top_k_top_p(state->vocab, params.n_repeat_last?(state->tokens.data()+state->tokens.size()-params.n_repeat_last):nullptr, params.n_repeat_last, state->logits, params.top_k, params.top_p, params.temp, params.repeat_penalty, state->rng);
 
-            if (id == llama_token_eos()) {
+            if (id == 50256) {
                 if (eos_count++ == params.eos_ignores) {
                     abort = true;
                     continue;
                 }
-                state->tokens.push_back(0);
-                llama_tokenize(state->ctx, "\n", &state->tokens.back(), 1, false);
-                id = state->tokens.back();
+                id = gpt_tokenize(state->vocab, "\n")[0];
+                state->tokens.push_back(id);
             } else {
                 // Add token
                 state->tokens.push_back(id);
             }
 
             // Get token as string
-            const auto str = llama_token_to_str(state->ctx, id);
+            const auto str = state->vocab.id_to_token[id];
 
             // Append string to function result
             fres.append(str);
 
             // Evaluate token
             //  TODO: Respect batch size
-            llama_eval(state->ctx, state->tokens.data()+state->tokens.size()-1, 1, state->tokens.size()-1, params.n_threads);
+            std::vector<int> batch(state->tokens.begin()+state->tokens.size()-1, state->tokens.begin()+state->tokens.size());
+            gptj_eval(state->model, params.n_threads, state->tokens.size()-1, batch, state->logits, state->mem_per_token);
 
             // Tick
-            if (on_tick && !on_tick(str)) abort = true;
+            if (on_tick && !on_tick(str.c_str())) abort = true;
         }
 
         // Create final string  TODO: Could be optimized
@@ -152,20 +164,15 @@ public:
     }
 
     void create_savestate(Savestate &sv) const override {
+        //TODO: This is just a stub implementation and should be implemented properly asap
         auto& state = get_state();
-        sv.kv.resize(llama_get_kv_cache_size(state->ctx));
-        std::memcpy(sv.kv.data(), llama_get_kv_cache(state->ctx), sv.kv.size());
-        sv.token_count = state->tokens.size();
-        sv.prompt = state->prompt;
-        sv.ctx = reinterpret_cast<void*>(state->ctx);
+        sv.kv.resize(state->prompt.size());
+        std::memcpy(sv.kv.data(), state->prompt.data(), state->prompt.size());
     }
     void restore_savestate(const Savestate &sv) override {
         auto& state = get_state();
-        if (sv.ctx != reinterpret_cast<void*>(state->ctx))
-            throw Exception("Savestate does not match context");
-        llama_set_kv_cache(state->ctx, sv.kv.data(), sv.kv.size(), sv.token_count);
-        state->tokens.resize(sv.token_count);
-        state->prompt = sv.prompt;
+        state->prompt.resize(sv.kv.size());
+        std::memcpy(state->prompt.data(), sv.kv.data(), sv.kv.size());
     }
 
     void serialize(std::ostream &o) const override {
@@ -230,3 +237,5 @@ public:
     }
 };
 }
+
+#endif // JUSTLM_GPTJ_HPP
