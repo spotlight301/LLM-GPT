@@ -8,10 +8,6 @@
 #include <chrono>
 #include <memory>
 #include <optional>
-#include <stdexcept>
-#include <fstream>
-#include <filesystem>
-
 
 
 namespace LM {
@@ -69,138 +65,24 @@ class InferencePool {
     }
 
     // Returns false on error
-    bool store_slot(Slot& slot) {
-        auto& inference = slot.get_inference();
-        // Open output file
-        std::ofstream f(get_slot_filename(slot.get_id()), std::ios::binary);
-        // Write weights path
-        auto weights_path = slot.get_weights_path();
-        uint32_t weights_path_len = weights_path.size();
-        f.write(reinterpret_cast<const char*>(&weights_path_len), sizeof(weights_path_len));
-        f.write(weights_path.data(), weights_path.size());
-        // Write params
-        if (!f.write(reinterpret_cast<const char*>(&inference.params), sizeof(inference.params))) {
-            return false;
-        }
-        // Serialize instance
-        try {
-            inference.serialize(f);
-        } catch (...) {
-            return false;
-        }
-        // Return success
-        return true;
-    }
+    bool store_slot(Slot& slot);
     // Returns nullptr on error
-    Slot *load_slot(size_t id, Slot *suggested_slot = nullptr) {
-        // Open input file
-        std::ifstream f(get_slot_filename(id), std::ios::binary);
-        if (!f) {
-            // Does not exist
-            return nullptr;
-        }
-        // Read weights path
-        std::string weights_path;
-        uint32_t weights_path_len;
-        if (!f.read(reinterpret_cast<char*>(&weights_path_len), sizeof(weights_path_len))) {
-            return nullptr;
-        }
-        weights_path.resize(weights_path_len);
-        if (!f.read(weights_path.data(), weights_path.size())) {
-            return nullptr;
-        }
-        // Read params
-        LM::Inference::Params p;
-        if (!f.read(reinterpret_cast<char*>(&p), sizeof(p))) {
-            return nullptr;
-        }
-        // Create instance
-        auto& slot = suggested_slot?*suggested_slot:get_free_slot();
-        auto& inference = slot.create_inference(id, weights_path, p);
-        // Deserialize instance
-        try {
-            inference.deserialize(f);
-        } catch (...) {
-            slot.reset();
-            return nullptr;
-        }
-        // Return final slot
-        return &slot;
-    }
+    Slot *load_slot(size_t id, Slot *suggested_slot = nullptr);
 
     void store_and_reset_slot(Slot& slot) {
         store_slot(slot); //TODO: Should handle errors somehow
         slot.reset();
     }
 
-    Slot& get_free_slot() {
-        // Attempt to find free slot while finding oldest one
-        Slot *oldest = nullptr;
-        for (auto& slot : slots) {
-            // Take free slot
-            if (slot.is_free()) {
-                return slot;
-            }
-            // Update oldest
-            if (oldest == nullptr || slot.get_last_access() < oldest->get_last_access()) {
-                oldest = &slot;
-            }
-        }
-        // Free up oldest slot and take that one
-        // Note: Since there has to be at least 1 slot, oldest is never going to be a nullptr
-        store_and_reset_slot(*oldest);
-        return *oldest;
-    }
+    // Doesn't fail
+    Slot& get_free_slot();
 
-    Slot* find_slot_by_id(size_t id, bool deserialize = true) {
-        // Attempt to find given slot while finding oldest one
-        Slot *oldest = nullptr;
-        for (auto& slot : slots) {
-            // Take slot with ID
-            if (slot.get_id() == id) {
-                return &slot;
-            }
-            // Update oldest
-            if (oldest == nullptr || slot.get_last_access() < oldest->get_last_access()) {
-                oldest = &slot;
-            }
-        }
-        // Slot not found, attempt to load it
-        if (deserialize) {
-            if (!oldest->is_free()) store_slot(*oldest);
-            if (!load_slot(id, oldest)) {
-                // In case lot loading failed, still reset slot for later use
-                //TODO: Make this configurable
-                oldest->reset();
-            } else {
-                return oldest;
-            }
-        }
-        // Slot not found
-        return nullptr;
-    }
+    // Returns nullptr if not found
+    Slot* find_slot_by_id(size_t id, bool deserialize = true);
 
 public:
     // The pool_name must be unique amonst all applications in cwd
-    InferencePool(size_t size, const std::string& pool_name, bool clean_up = true) : pool_name(pool_name) {
-        // Make sure size isn't zero
-        if (size == 0) size = 1;
-        // Create slots as requested
-        slots.reserve(size);
-        for (size_t c = 0; c != size; c++) {
-            slots.emplace_back(Slot());
-        }
-        // Clean up previous slots as requested
-        if (clean_up) {
-            const auto prefix = get_slot_filename_prefix();
-            for (const auto& file : std::filesystem::directory_iterator(".")) {
-                if (file.path().filename().string().find(prefix) == 0) {
-                    std::error_code ec;
-                    std::filesystem::remove(file, ec);
-                }
-            }
-        }
-    }
+    InferencePool(size_t size, const std::string& pool_name, bool clean_up = true);
     ~InferencePool() {
         if (store_on_destruct) {
             store_all();
@@ -211,51 +93,17 @@ public:
         auto& slot = get_free_slot();
         return slot.create_inference(id, weights_path, p);
     }
-    std::optional<std::reference_wrapper<Inference>> get_inference(size_t id) {
-        auto slot = find_slot_by_id(id);
-        if (slot) {
-            return slot->get_inference(true);
-        }
-        return {};
-    }
-    Inference &get_or_create_inference(size_t id, const std::string& weights_path, const Inference::Params& p) {
-        auto slot = find_slot_by_id(id);
-        if (slot) {
-            return slot->get_inference(true);
-        }
-        slot = &get_free_slot();
-        return slot->create_inference(id, weights_path, p);
-    }
-    void delete_inference(size_t id) {
-        auto slot = find_slot_by_id(id, false);
-        // Reset slot
-        if (slot) {
-            slot->reset();
-        }
-        // Delete file
-        std::error_code ec;
-        std::filesystem::remove(get_slot_filename(id), ec);
-    }
-    void store_all() {
-        for (auto& slot : slots) {
-            if (slot.is_free()) continue;
-            store_slot(slot);
-        }
-    }
+    std::optional<std::reference_wrapper<Inference>> get_inference(size_t id);
+    Inference &get_or_create_inference(size_t id, const std::string& weights_path, const Inference::Params& p);
+    void delete_inference(size_t id);
+    void store_all();
+    std::vector<size_t> get_active_slot_ids() const;
 
     void set_store_on_destruct(bool v) {
         store_on_destruct = v;
     }
     bool is_stored_on_destruction() const {
         return store_on_destruct;
-    }
-
-    std::vector<size_t> get_active_slot_ids() const {
-        std::vector<size_t> fres;
-        for (const auto& slot : slots) {
-            fres.push_back(slot.get_id());
-        }
-        return fres;
     }
 };
 }
