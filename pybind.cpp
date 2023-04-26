@@ -27,7 +27,7 @@ PYBIND11_MODULE(libjustlm_py, m) {
         .def_readwrite("eos_ignores", &Inference::Params::eos_ignores)
         .def_readwrite("use_mlock", &Inference::Params::use_mlock);
     py::class_<Inference>(m, "Inference")
-        .def(py::init<const std::string &, const Inference::Params&>(), py::arg("weights_path"), py::arg("params") = Inference::Params())
+        .def_static("construct", &Inference::construct, py::arg("weights_path"), py::arg("params") = Inference::Params())
         .def("append", &Inference::append, py::arg("prompt"), py::arg("on_tick") = nullptr)
         .def("run", &Inference::run, py::arg("end") = "", py::arg("on_tick") = nullptr)
         .def("create_savestate", &Inference::create_savestate)

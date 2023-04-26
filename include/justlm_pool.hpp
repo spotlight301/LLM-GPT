@@ -38,7 +38,7 @@ class InferencePool {
         Inference& create_inference(size_t id, const std::string& weights_path, const Inference::Params& p) {
             this->id = id;
             this->weights_path = weights_path;
-            inference = std::make_unique<Inference>(weights_path, p);
+            inference.reset(Inference::construct(weights_path, p));
             return get_inference(true);
         }
         Inference& get_inference(bool update_last_access = false) {
