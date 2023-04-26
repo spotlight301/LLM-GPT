@@ -10,9 +10,8 @@
 
 namespace LM {
 class Inference {
-    struct State *state;
-
-    void init(const std::string& weights_path);
+protected:
+    void *generic_state = nullptr;
 
     static inline
     bool ends_with(std::string_view str, std::string_view suffix) {
@@ -58,30 +57,34 @@ public:
         }
     };
 
-    Inference(const std::string& weights_path, const Params& p) : params(p) {
+    Inference(const Params& p) : params(p) {
         // Set random seed
         params.seed = params.seed?params.seed:time(NULL);
         params.n_threads = params.n_threads?params.n_threads:(static_cast<int32_t>(std::thread::hardware_concurrency()) / 2);
-
-        // Initialize llm
-        init(weights_path);
     }
-    ~Inference();
+    virtual ~Inference() {}
     Inference(const Inference&) = delete;
     Inference(Inference&) = delete;
-    Inference(Inference&&);
+    Inference(Inference&& o)
+        : params(o.params)
+        , generic_state(o.generic_state) {
+        o.generic_state = nullptr;
+    }
 
-    void append(std::string_view prompt, const std::function<bool (float progress)>& on_tick = nullptr);
+    static
+    Inference *construct(const std::string& weights_path, const Params& p);
 
-    std::string run(std::string_view end = "", const std::function<bool (const char *generated)>& on_tick = nullptr);
+    virtual void append(std::string_view prompt, const std::function<bool (float progress)>& on_tick = nullptr) = 0;
 
-    void create_savestate(Savestate&) const;
-    void restore_savestate(const Savestate&);
+    virtual std::string run(std::string_view end = "", const std::function<bool (const char *generated)>& on_tick = nullptr) = 0;
 
-    void serialize(std::ostream&) const;
-    void deserialize(std::istream&);
+    virtual void create_savestate(Savestate&) const = 0;
+    virtual void restore_savestate(const Savestate&) = 0;
 
-    const std::string& get_prompt() const;
+    virtual void serialize(std::ostream&) const = 0;
+    virtual void deserialize(std::istream&) = 0;
+
+    virtual const std::string& get_prompt() const = 0;
 };
 }
 #endif // JUSTLM_HPP
