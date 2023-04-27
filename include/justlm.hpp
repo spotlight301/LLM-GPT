@@ -69,8 +69,10 @@ public:
     static
     Inference *construct(const std::string& weights_path, const Params& p);
 
+    // This must be called with a non-empty prompt!
     virtual void append(const std::string& prompt, const std::function<bool (float progress)>& on_tick = nullptr) = 0;
 
+    // append() must have been called at least once before calling this!
     virtual std::string run(std::string_view end = "", const std::function<bool (const char *generated)>& on_tick = nullptr) = 0;
 
     virtual unsigned get_context_size() const = 0;

@@ -21,7 +21,6 @@ class GPTJInference final : public Inference {
         std::vector<float> logits;
         size_t mem_per_token;
         std::mt19937 rng;
-        int n_ctx;
 
         State(int32_t seed) : rng(seed) {}
     };
@@ -68,11 +67,11 @@ class GPTJInference final : public Inference {
 
     void window_scroll() {
         auto &state = get_state();
-        if (state->tokens.size() > state->n_ctx) {
+        if (state->tokens.size() > params.n_ctx) {
             // "Scroll" down the context window...
-            unsigned overflow = state->tokens.size() - state->n_ctx;
+            unsigned overflow = state->tokens.size() - params.n_ctx;
             std::vector<int> tokens_in_view(state->tokens.begin()+params.n_ctx_window_top_bar+overflow, state->tokens.end());
-            state->tokens.resize(state->n_ctx);
+            state->tokens.resize(params.n_ctx);
             std::memcpy(state->tokens.data()+params.n_ctx_window_top_bar, tokens_in_view.data(), tokens_in_view.size());
         }
     }
