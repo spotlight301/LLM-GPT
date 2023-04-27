@@ -66,6 +66,17 @@ class GPTJInference final : public Inference {
         }
     }
 
+    void window_scroll() {
+        auto &state = get_state();
+        if (state->tokens.size() > state->n_ctx) {
+            // "Scroll" down the context window...
+            unsigned overflow = state->tokens.size() - state->n_ctx;
+            std::vector<int> tokens_in_view(state->tokens.begin()+params.n_ctx_window_top_bar+overflow, state->tokens.end());
+            state->tokens.resize(state->n_ctx);
+            std::memcpy(state->tokens.data()+params.n_ctx_window_top_bar, tokens_in_view.data(), tokens_in_view.size());
+        }
+    }
+
 public:
     GPTJInference(const std::string& weights_path, std::ifstream& f, const Params& p) : Inference(p) {
         init(weights_path, f);
@@ -91,11 +102,8 @@ public:
                     std::make_move_iterator(tokens.end())
         );
 
-        // Make sure limit is far from being hit
-        if (state->tokens.size() > state->n_ctx-6) {
-            // Yup. *this MUST be decomposed now.
-            throw ContextLengthException();
-        }
+        // Make sure token limit isn't being hit
+        window_scroll();
 
         // Evaluate new tokens in batches
         int it;
@@ -146,6 +154,9 @@ public:
                 // Add token
                 state->tokens.push_back(id);
             }
+
+            // Make sure token limit isn't being hit
+            window_scroll();
 
             // Get token as string
             const auto str = state->vocab.id_to_token[id];

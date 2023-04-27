@@ -43,6 +43,17 @@ class LLaMaInference final : public Inference {
         state->n_ctx = llama_n_ctx(state->ctx);
     }
 
+    void window_scroll() {
+        auto &state = get_state();
+        if (state->tokens.size() > state->n_ctx) {
+            // "Scroll" down the context window...
+            unsigned overflow = state->tokens.size() - state->n_ctx;
+            std::vector<int> tokens_in_view(state->tokens.begin()+params.n_ctx_window_top_bar+overflow, state->tokens.end());
+            state->tokens.resize(state->n_ctx);
+            std::memcpy(state->tokens.data()+params.n_ctx_window_top_bar, tokens_in_view.data(), tokens_in_view.size());
+        }
+    }
+
 public:
     LLaMaInference(const std::string& weights_path, const Params& p) : Inference(p) {
         init(weights_path);
@@ -73,11 +84,8 @@ public:
         const auto token_count = llama_tokenize(state->ctx, prompt.c_str(), state->tokens.data()+old_token_count, state->tokens.size()-old_token_count, was_empty);
         state->tokens.resize(old_token_count+token_count);
 
-        // Make sure limit is far from being hit
-        if (state->tokens.size() > state->n_ctx-6) {
-            // Yup. *this MUST be decomposed now.
-            throw ContextLengthException();
-        }
+        // Make sure token limit isn't being hit
+        window_scroll();
 
         // Evaluate new tokens in batches
         int it;
@@ -126,6 +134,9 @@ public:
                 // Add token
                 state->tokens.push_back(id);
             }
+
+            // Make sure token limit isn't hit
+            window_scroll();
 
             // Get token as string
             const auto str = llama_token_to_str(state->ctx, id);

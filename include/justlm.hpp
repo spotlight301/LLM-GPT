@@ -30,11 +30,8 @@ public:
     struct Params {
         int seed = 0; // RNG seed
         unsigned n_threads = 0;
-        union {
-            unsigned n_ctx; // Context size, llama.cpp specific
-            unsigned n_prompt = -1; // Prompt size, gpt2 specific
-        };
-        unsigned n_ctx_window_top_bar = 0;
+        unsigned n_ctx; // Context size
+        unsigned n_ctx_window_top_bar = 0; // Top bar of visible context. Must be smaller than context size
         unsigned n_batch = 8; // Batch size
         unsigned n_repeat_last = 0; // llama.cpp specific
 
