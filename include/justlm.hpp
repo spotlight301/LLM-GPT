@@ -47,7 +47,7 @@ public:
     } params;
 
     struct Savestate {
-        std::vector<uint8_t> kv;
+        std::vector<uint8_t> buf;
         unsigned token_count;
         std::string prompt;
         void *ctx = nullptr;

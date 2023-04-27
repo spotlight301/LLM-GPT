@@ -101,7 +101,7 @@ LM::InferencePool::Slot *LM::InferencePool::find_slot_by_id(size_t id, bool dese
     if (deserialize) {
         if (!oldest->is_free()) store_slot(*oldest);
         if (!load_slot(id, oldest)) {
-            // In case lot loading failed, still reset slot for later use
+            // In case slot loading failed, still reset slot for later use
             //TODO: Make this configurable
             oldest->reset();
         } else {
