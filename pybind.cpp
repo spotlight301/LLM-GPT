@@ -16,7 +16,7 @@ PYBIND11_MODULE(libjustlm_py, m) {
         .def_readonly("seed", &Inference::Params::seed)
         .def_readwrite("n_threads", &Inference::Params::n_threads)
         .def_readonly("n_ctx", &Inference::Params::n_ctx)
-        .def_readonly("n_prompt", &Inference::Params::n_prompt)
+        .def_readonly("n_prompt", &Inference::Params::n_ctx_window_top_bar)
         .def_readwrite("n_batch", &Inference::Params::n_batch)
         .def_readwrite("n_repeat_last", &Inference::Params::n_repeat_last)
         .def_readwrite("repeat_penalty", &Inference::Params::repeat_penalty)
@@ -33,6 +33,7 @@ PYBIND11_MODULE(libjustlm_py, m) {
         .def("create_savestate", &Inference::create_savestate)
         .def("restore_savestate", &Inference::restore_savestate)
         .def("get_prompt", &Inference::get_prompt)
+        .def("get_context_size", &Inference::get_context_size)
         .def_readwrite("params", &Inference::params);
     py::class_<Inference::Savestate>(m, "Savestate")
         .def(py::init<>());

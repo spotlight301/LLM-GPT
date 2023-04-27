@@ -162,7 +162,7 @@ public:
         return fres;
     }
 
-    unsigned get_token_count() const override {
+    unsigned get_context_size() const override {
         return get_state()->tokens.size();
     }
 

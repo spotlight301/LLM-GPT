@@ -76,7 +76,7 @@ public:
 
     virtual std::string run(std::string_view end = "", const std::function<bool (const char *generated)>& on_tick = nullptr) = 0;
 
-    virtual unsigned get_token_count() const = 0;
+    virtual unsigned get_context_size() const = 0;
 
     virtual void create_savestate(Savestate&) const = 0;
     virtual void restore_savestate(const Savestate&) = 0;
