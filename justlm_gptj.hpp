@@ -19,7 +19,7 @@ class GPTJInference final : public Inference {
         std::string prompt; // Mostly here for easy "debugging"
         std::vector<int> tokens;
         std::vector<float> logits;
-        size_t mem_per_token;
+        size_t mem_per_token = 0;
         std::mt19937 rng;
 
         State(int32_t seed) : rng(seed) {}
