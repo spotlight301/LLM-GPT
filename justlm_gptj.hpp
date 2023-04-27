@@ -59,9 +59,11 @@ class GPTJInference final : public Inference {
         }
     }
     void reinit() {
-        deinit();
-        std::ifstream f(weights_path);
-        init(weights_path, f);
+        if (!get_state()->prompt.empty()) {
+            deinit();
+            std::ifstream f(weights_path, std::ios::binary);
+            init(weights_path, f);
+        }
     }
 
 public:
