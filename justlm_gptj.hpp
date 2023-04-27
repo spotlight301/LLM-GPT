@@ -175,6 +175,10 @@ public:
         return fres;
     }
 
+    unsigned get_token_count() const override {
+        return get_state()->tokens.size();
+    }
+
     //TODO: The following functions are just a stub implementations and should be implemented properly asap
     void create_savestate(Savestate &sv) const override {
         auto& state = get_state();

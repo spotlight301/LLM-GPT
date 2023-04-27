@@ -151,11 +151,15 @@ public:
         return fres;
     }
 
+    unsigned get_token_count() const override {
+        return get_state()->tokens.size();
+    }
+
     void create_savestate(Savestate &sv) const override {
         auto& state = get_state();
         sv.buf.resize(llama_get_state_size(state->ctx));
         llama_copy_state_data(state->ctx, sv.buf.data());
-        sv.token_count = state->tokens.size();
+        sv.tokens = state->tokens;
         sv.prompt = state->prompt;
         sv.ctx = generic_state;
     }
@@ -164,7 +168,7 @@ public:
         if (sv.ctx != generic_state)
             throw Exception("Savestate does not match context");
         llama_set_state_data(state->ctx, sv.buf.data());
-        state->tokens.resize(sv.token_count);
+        state->tokens = sv.tokens;
         state->prompt = sv.prompt;
     }
 

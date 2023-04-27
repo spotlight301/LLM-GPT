@@ -28,16 +28,16 @@ public:
     };
 
     struct Params {
-        int32_t seed = 0; // RNG seed
-        int32_t n_threads = 0;
+        int seed = 0; // RNG seed
+        unsigned n_threads = 0;
         union {
-            int32_t n_ctx; // Context size, llama.cpp specific
-            int32_t n_prompt = -1; // Prompt size, gpt2 specific
+            unsigned n_ctx; // Context size, llama.cpp specific
+            unsigned n_prompt = -1; // Prompt size, gpt2 specific
         };
-        int32_t n_batch = 8; // Batch size
-        int32_t n_repeat_last = 0; // llama.cpp specific
+        unsigned n_batch = 8; // Batch size
+        unsigned n_repeat_last = 0; // llama.cpp specific
 
-        int32_t top_k = 40;
+        unsigned top_k = 40;
         float   top_p = 0.9f;
         float   temp  = 0.72f;
         float repeat_penalty = 1.0f; // llama.cpp specific
@@ -48,7 +48,7 @@ public:
 
     struct Savestate {
         std::vector<uint8_t> buf;
-        unsigned token_count;
+        std::vector<int> tokens;
         std::string prompt;
         void *ctx = nullptr;
 
@@ -60,7 +60,7 @@ public:
     Inference(const Params& p) : params(p) {
         // Set random seed
         params.seed = params.seed?params.seed:time(NULL);
-        params.n_threads = params.n_threads?params.n_threads:(static_cast<int32_t>(std::thread::hardware_concurrency()) / 2);
+        params.n_threads = params.n_threads?params.n_threads:(static_cast<unsigned>(std::thread::hardware_concurrency()) / 2);
     }
     virtual ~Inference() {}
     Inference(const Inference&) = delete;
@@ -77,6 +77,8 @@ public:
     virtual void append(std::string_view prompt, const std::function<bool (float progress)>& on_tick = nullptr) = 0;
 
     virtual std::string run(std::string_view end = "", const std::function<bool (const char *generated)>& on_tick = nullptr) = 0;
+
+    virtual unsigned get_token_count() const = 0;
 
     virtual void create_savestate(Savestate&) const = 0;
     virtual void restore_savestate(const Savestate&) = 0;
