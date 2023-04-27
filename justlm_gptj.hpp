@@ -74,11 +74,8 @@ public:
         deinit();
     }
 
-    void append(std::string_view prompt, const std::function<bool (float)> &on_tick = nullptr) override {
+    void append(const std::string& prompt, const std::function<bool (float)> &on_tick = nullptr) override {
         auto& state = get_state();
-
-        // Check if prompt was empty
-        const bool was_empty = state->prompt.empty();
 
         // Append to current prompt
         state->prompt.append(prompt);
@@ -87,7 +84,7 @@ public:
         const auto old_token_count = state->tokens.size();
 
         // Run tokenizer
-        const auto tokens = gpt_tokenize(state->vocab, std::string(prompt));
+        const auto tokens = gpt_tokenize(state->vocab, prompt);
         state->tokens.insert(
                     state->tokens.end(),
                     std::make_move_iterator(tokens.begin()),

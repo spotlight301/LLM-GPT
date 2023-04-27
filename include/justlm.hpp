@@ -34,6 +34,7 @@ public:
             unsigned n_ctx; // Context size, llama.cpp specific
             unsigned n_prompt = -1; // Prompt size, gpt2 specific
         };
+        unsigned n_ctx_window_top_bar = 0;
         unsigned n_batch = 8; // Batch size
         unsigned n_repeat_last = 0; // llama.cpp specific
 
@@ -74,7 +75,7 @@ public:
     static
     Inference *construct(const std::string& weights_path, const Params& p);
 
-    virtual void append(std::string_view prompt, const std::function<bool (float progress)>& on_tick = nullptr) = 0;
+    virtual void append(const std::string& prompt, const std::function<bool (float progress)>& on_tick = nullptr) = 0;
 
     virtual std::string run(std::string_view end = "", const std::function<bool (const char *generated)>& on_tick = nullptr) = 0;
 

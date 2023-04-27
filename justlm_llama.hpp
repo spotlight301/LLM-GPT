@@ -56,7 +56,7 @@ public:
         }
     }
 
-    void append(std::string_view prompt, const std::function<bool (float)> &on_tick = nullptr) override {
+    void append(const std::string& prompt, const std::function<bool (float)> &on_tick = nullptr) override {
         auto& state = get_state();
 
         // Check if prompt was empty
@@ -69,8 +69,8 @@ public:
         const auto old_token_count = state->tokens.size();
         state->tokens.resize(old_token_count+state->prompt.size());
 
-        // Run tokenizer                                          .data() <-- this may be a serious issue!!!
-        const auto token_count = llama_tokenize(state->ctx, prompt.data(), state->tokens.data()+old_token_count, state->tokens.size()-old_token_count, was_empty);
+        // Run tokenizer
+        const auto token_count = llama_tokenize(state->ctx, prompt.c_str(), state->tokens.data()+old_token_count, state->tokens.size()-old_token_count, was_empty);
         state->tokens.resize(old_token_count+token_count);
 
         // Make sure limit is far from being hit
