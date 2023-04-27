@@ -11,6 +11,8 @@
 
 namespace LM {
 class GPTJInference final : public Inference {
+    std::string weights_path;
+
     struct State {
         gpt_vocab vocab;
         gptj_model model;
@@ -31,15 +33,16 @@ class GPTJInference final : public Inference {
         return *reinterpret_cast<State* const*>(&generic_state);
     }
 
-    void init(const std::string& weights_path, std::ifstream& f) {
+    void init(const std::string& _weights_path, std::ifstream& f) {
         auto& state = get_state();
+        weights_path = _weights_path;
 
         // Allocate state
         state = new State(params.seed);
 
         // Load model
         if (!gptj_model_load(weights_path, f, state->model, state->vocab)) {
-            throw Exception("GPT-J ERROR: failed to load model from "+weights_path);
+            throw Exception("Failed to initialize gptj from file");
         }
 
         // Calculate memory required per token
@@ -47,12 +50,7 @@ class GPTJInference final : public Inference {
         static std::vector<gpt_vocab::id> r_instruct;
         gptj_eval(state->model, params.n_threads, 0, { 0, 1, 2, 3 }, state->logits, state->mem_per_token);
     }
-
-public:
-    GPTJInference(const std::string& weights_path, std::ifstream& f, const Params& p) : Inference(p) {
-        init(weights_path, f);
-    }
-    ~GPTJInference() override {
+    void deinit() {
         auto& state = get_state();
 
         if (state) {
@@ -60,8 +58,21 @@ public:
             delete state;
         }
     }
+    void reinit() {
+        deinit();
+        std::ifstream f(weights_path);
+        init(weights_path, f);
+    }
 
-    void append(std::string_view prompt, const std::function<bool (float)> &on_tick) override {
+public:
+    GPTJInference(const std::string& weights_path, std::ifstream& f, const Params& p) : Inference(p) {
+        init(weights_path, f);
+    }
+    ~GPTJInference() override {
+        deinit();
+    }
+
+    void append(std::string_view prompt, const std::function<bool (float)> &on_tick = nullptr) override {
         auto& state = get_state();
 
         // Check if prompt was empty
@@ -72,7 +83,6 @@ public:
 
         // Resize buffer for tokens
         const auto old_token_count = state->tokens.size();
-        state->tokens.reserve(old_token_count+(state->prompt.size()/4));
 
         // Run tokenizer
         const auto tokens = gpt_tokenize(state->vocab, std::string(prompt));
@@ -115,7 +125,7 @@ public:
         }
     }
 
-    std::string run(std::string_view end, const std::function<bool (const char *)> &on_tick) override {
+    std::string run(std::string_view end, const std::function<bool (const char *)> &on_tick = nullptr) override {
         auto& state = get_state();
         std::string fres;
 
@@ -171,65 +181,34 @@ public:
     }
     void restore_savestate(const Savestate &sv) override {
         auto& state = get_state();
-        state->prompt.resize(sv.kv.size());
-        std::memcpy(state->prompt.data(), sv.kv.data(), sv.kv.size());
+        reinit();
+        std::string prompt;
+        prompt.resize(sv.kv.size());
+        std::memcpy(prompt.data(), sv.kv.data(), sv.kv.size());
+        append(prompt);
     }
 
     void serialize(std::ostream &o) const override {
         auto& state = get_state();
-        // Get state size
-        auto state_size = llama_get_state_size(state->ctx);
-        // Write sizes
-        for (const uint32_t s : {static_cast<size_t>(state->n_ctx), state->tokens.size(), state->prompt.size(), state_size}) {
-            if (!o.write(reinterpret_cast<const char*>(&s), sizeof(s))) {
-                throw Exception("Failed to serialize data sizes");
-            }
-        }
-        // Write tokens
-        if (!o.write(reinterpret_cast<const char*>(state->tokens.data()), state->tokens.size()*sizeof(int))) {
-            throw Exception("Failed to serialize tokens");
-        }
-        // Write prompt
-        if (!o.write(state->prompt.data(), state->prompt.size())) {
+        size_t size = state->prompt.size();
+        o.write(reinterpret_cast<const char*>(&size), sizeof(size));
+        if (!o.write(state->prompt.data(), size)) {
             throw Exception("Failed to serialize prompt");
-        }
-        // Write state
-        std::vector<uint8_t> state_buf(state_size);
-        llama_copy_state_data(state->ctx, state_buf.data());
-        if (!o.write(reinterpret_cast<const char*>(state_buf.data()), state_size)) {
-            throw Exception("Failed to serialize state");
         }
     }
     void deserialize(std::istream &i) override {
         auto& state = get_state();
-        uint32_t n_ctx, embd_size, prompt_size, state_size;
-        // Initialization to prevent compiler complaints
-        n_ctx = embd_size = prompt_size = state_size = 0;
-        // Read sizes
-        for (uint32_t *s : {&n_ctx, &embd_size, &prompt_size, &state_size}) {
-            if (!i.read(reinterpret_cast<char*>(s), sizeof(*s))) {
-                throw Exception("Failed to deserialize data sizes");
-            }
+        std::string prompt;
+        size_t size;
+        if (!i.read(reinterpret_cast<char*>(&size), sizeof(size))) {
+            throw Exception("Failed to deserialize prompt size");
         }
-        if (state->n_ctx != n_ctx) {
-            throw Exception("Context length differs (My "+std::to_string(state->n_ctx)+" vs. files "+std::to_string(n_ctx)+')');
-        }
-        // Read tokens
-        state->tokens.resize(embd_size);
-        if (!i.read(reinterpret_cast<char*>(state->tokens.data()), state->tokens.size()*sizeof(int))) {
-            throw Exception("Failed to deserialize tokens");
-        }
-        // Read prompt
-        state->prompt.resize(prompt_size);
-        if (!i.read(state->prompt.data(), state->prompt.size())) {
+        prompt.resize(size);
+        if (!i.read(prompt.data(), size)) {
             throw Exception("Failed to deserialize prompt");
         }
-        // Read state
-        std::vector<uint8_t> state_buf(state_size);
-        if (!i.read(reinterpret_cast<char*>(state_buf.data()), state_buf.size())) {
-            throw Exception("Failed to deserialize state");
-        }
-        llama_set_state_data(state->ctx, state_buf.data());
+        reinit();
+        append(prompt);
     }
 
     const std::string &get_prompt() const override {

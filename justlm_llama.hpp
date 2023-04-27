@@ -56,7 +56,7 @@ public:
         }
     }
 
-    void append(std::string_view prompt, const std::function<bool (float)> &on_tick) override {
+    void append(std::string_view prompt, const std::function<bool (float)> &on_tick = nullptr) override {
         auto& state = get_state();
 
         // Check if prompt was empty
@@ -67,7 +67,7 @@ public:
 
         // Resize buffer for tokens
         const auto old_token_count = state->tokens.size();
-        state->tokens.reserve(old_token_count+(state->prompt.size()/4));
+        state->tokens.resize(old_token_count+state->prompt.size());
 
         // Run tokenizer                                          .data() <-- this may be a serious issue!!!
         const auto token_count = llama_tokenize(state->ctx, prompt.data(), state->tokens.data()+old_token_count, state->tokens.size()-old_token_count, was_empty);
@@ -103,7 +103,7 @@ public:
         }
     }
 
-    std::string run(std::string_view end, const std::function<bool (const char *)> &on_tick) override {
+    std::string run(std::string_view end, const std::function<bool (const char *)> &on_tick = nullptr) override {
         auto& state = get_state();
         std::string fres;
 
