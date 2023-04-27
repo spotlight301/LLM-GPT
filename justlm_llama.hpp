@@ -153,17 +153,17 @@ public:
 
     void create_savestate(Savestate &sv) const override {
         auto& state = get_state();
-        sv.kv.resize(llama_get_kv_cache_size(state->ctx));
-        std::memcpy(sv.kv.data(), llama_get_kv_cache(state->ctx), sv.kv.size());
+        sv.buf.resize(llama_get_state_size(state->ctx));
+        llama_copy_state_data(state->ctx, sv.buf.data());
         sv.token_count = state->tokens.size();
         sv.prompt = state->prompt;
-        sv.ctx = reinterpret_cast<void*>(state->ctx);
+        sv.ctx = generic_state;
     }
     void restore_savestate(const Savestate &sv) override {
         auto& state = get_state();
-        if (sv.ctx != reinterpret_cast<void*>(state->ctx))
+        if (sv.ctx != generic_state)
             throw Exception("Savestate does not match context");
-        llama_set_kv_cache(state->ctx, sv.kv.data(), sv.kv.size(), sv.token_count);
+        llama_set_state_data(state->ctx, sv.buf.data());
         state->tokens.resize(sv.token_count);
         state->prompt = sv.prompt;
     }

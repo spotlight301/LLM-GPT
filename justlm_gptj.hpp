@@ -173,19 +173,18 @@ public:
         return fres;
     }
 
+    //TODO: The following functions are just a stub implementations and should be implemented properly asap
     void create_savestate(Savestate &sv) const override {
-        //TODO: This is just a stub implementation and should be implemented properly asap
         auto& state = get_state();
-        sv.kv.resize(state->prompt.size());
-        std::memcpy(sv.kv.data(), state->prompt.data(), state->prompt.size());
+        sv.prompt = state->prompt;
+        sv.ctx = generic_state;
     }
     void restore_savestate(const Savestate &sv) override {
         auto& state = get_state();
+        if (sv.ctx != generic_state)
+            throw Exception("Savestate does not match context");
         reinit();
-        std::string prompt;
-        prompt.resize(sv.kv.size());
-        std::memcpy(prompt.data(), sv.kv.data(), sv.kv.size());
-        append(prompt);
+        append(sv.prompt);
     }
 
     void serialize(std::ostream &o) const override {
