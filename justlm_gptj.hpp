@@ -65,15 +65,67 @@ class GPTJInference final : public Inference {
         }
     }
 
-    void window_scroll() {
+    // This function reduces the size of our tokens vector according to some parameters
+    // All tokens will be evaluated if scrolling was needed and true will be returned
+    bool window_scroll() {
         auto &state = get_state();
-        if (state->tokens.size() > params.n_ctx) {
-            // "Scroll" down the context window...
-            unsigned overflow = state->tokens.size() - params.n_ctx;
-            std::vector<int> tokens_in_view(state->tokens.begin()+params.n_ctx_window_top_bar+overflow, state->tokens.end());
-            state->tokens.resize(params.n_ctx);
-            std::memcpy(state->tokens.data()+params.n_ctx_window_top_bar, tokens_in_view.data(), tokens_in_view.size());
+        // Check that we actually need to scroll
+        if (state->tokens.size() <= params.n_ctx) {
+            // Nope
+            return false;
         }
+        // Start scrolling
+        if (params.scroll_keep > 0.0f) {
+            // "Scroll" down the context window...
+            unsigned keep_count = float(state->tokens.size() - params.n_ctx_window_top_bar) * 0.4f; // We keep about 40%
+            // Get vector of tokens to keep
+            std::vector<int> tokens_in_view(state->tokens.end()-keep_count, state->tokens.end());
+            // Cut down tokens vector size
+            state->tokens.resize(params.n_ctx_window_top_bar+keep_count);
+            // Overwrite tokens after top bar with tokens in view
+            std::memcpy(state->tokens.data()+params.n_ctx_window_top_bar, tokens_in_view.data(), tokens_in_view.size()*sizeof(int));
+        } else {
+            // Cut down tokens vector size to top bar
+            state->tokens.resize(params.n_ctx_window_top_bar);
+        }
+        // Evaluate tokens
+        evaluate_tokens(0, on_scroll);
+        // We've scrolled!
+        return true;
+    }
+
+    void evaluate_tokens(size_t starting_offset, const std::function<bool (float)> &on_tick = nullptr) {
+        auto& state = get_state();
+
+        // Evaluate tokens in batches
+        unsigned it;
+        for (it = starting_offset; ; it += params.n_batch) {
+            if (it + params.n_batch >= ssize_t(state->tokens.size())) break;
+
+            // Evaluate
+            std::vector<int> batch(state->tokens.begin()+it, state->tokens.begin()+it+params.n_batch);
+            gptj_eval(state->model, params.n_threads, it, batch, state->logits, state->mem_per_token);
+
+            // Tick
+            if (on_tick) {
+                // Calculate progress
+                auto progress = float(it-starting_offset) / (state->tokens.size()-starting_offset) * 100.f;
+                // Run callback
+                if (!on_tick(progress)) break;
+            }
+        }
+
+        // Evaluate remaining tokens
+        if (it < state->tokens.size()) {
+            for (; it != state->tokens.size(); it++) {
+                //TODO: This is extremely inefficient! Don't do that...
+                std::vector<int> batch(state->tokens.begin()+it, state->tokens.begin()+it+1);
+                gptj_eval(state->model, params.n_threads, it, batch, state->logits, state->mem_per_token);
+            }
+        }
+
+        // Notify about completion
+        if (on_tick) on_tick(100.f);
     }
 
 public:
@@ -102,33 +154,13 @@ public:
         );
 
         // Make sure token limit isn't being hit
-        window_scroll();
-
-        // Evaluate new tokens in batches
-        int it;
-        for (it = old_token_count; ; it += params.n_batch) {
-            if (it >= ssize_t(state->tokens.size()) - params.n_batch) break;
-
-            // Evaluate
-            std::vector<int> batch(state->tokens.begin()+it, state->tokens.begin()+it+params.n_batch);
-            gptj_eval(state->model, params.n_threads, it, batch, state->logits, state->mem_per_token);
-
-            // Tick
-            if (on_tick) {
-                // Calculate progress
-                auto progress = float(it-old_token_count) / (state->tokens.size()-old_token_count) * 100.f;
-                // Run callback
-                if (!on_tick(progress)) break;
-            }
+        if (window_scroll()) {
+            // That function already has evaluated our tokens since scrolling was needed
+            return;
         }
-        // Evaluate remaining tokens
-        if (it < state->tokens.size()) {
-            for (; it != state->tokens.size(); it++) {
-                //TODO: This is extremely inefficient! Don't do that...
-                std::vector<int> batch(state->tokens.begin()+it, state->tokens.begin()+it+1);
-                gptj_eval(state->model, params.n_threads, it, batch, state->logits, state->mem_per_token);
-            }
-        }
+
+        // Evaluate new tokens
+        evaluate_tokens(old_token_count, on_tick);
     }
 
     std::string run(std::string_view end, const std::function<bool (const char *)> &on_tick = nullptr) override {

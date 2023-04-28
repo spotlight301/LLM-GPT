@@ -11,6 +11,8 @@
 namespace LM {
 class Inference {
 protected:
+    std::function<bool (float)> on_scroll = nullptr;
+
     void *generic_state = nullptr;
 
     static inline
@@ -20,6 +22,7 @@ protected:
     }
 
 public:
+
     struct Exception : public std::runtime_error {
         using std::runtime_error::runtime_error;
     };
@@ -31,6 +34,8 @@ public:
         unsigned n_ctx_window_top_bar = 0; // Top bar of context window. Must be smaller than context size
         unsigned n_batch = 8; // Batch size
         unsigned n_repeat_last = 0; // llama.cpp specific
+
+        float scroll_keep = 0.0f; // 0.4f to keep 40% of context below top bar when scrolling; 0.0f to remove everything after top bar
 
         unsigned top_k = 40;
         float   top_p = 0.9f;
@@ -68,6 +73,10 @@ public:
 
     static
     Inference *construct(const std::string& weights_path, const Params& p);
+
+    void set_scroll_callback(const std::function<bool (float)>& scroll_cb) {
+        on_scroll = scroll_cb;
+    }
 
     // This must be called with a non-empty prompt!
     virtual void append(const std::string& prompt, const std::function<bool (float progress)>& on_tick = nullptr) = 0;
