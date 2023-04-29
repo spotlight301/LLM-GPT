@@ -159,6 +159,7 @@ void LM::InferencePool::cleanup() {
     // Collect files
     const auto prefix = get_slot_filename_prefix();
     for (auto& file : std::filesystem::directory_iterator(".")) {
+        if (file.path().filename().string().find(prefix) != 0) continue;
         std::error_code ec;
         std::filesystem::remove(file, ec);
     }
@@ -169,6 +170,7 @@ void LM::InferencePool::cleanup(time_t max_age) {
     // Collect files
     const auto prefix = get_slot_filename_prefix();
     for (auto& file : std::filesystem::directory_iterator(".")) {
+        if (file.path().filename().string().find(prefix) != 0) continue;
         // Get file age
         const auto age = file.last_write_time().time_since_epoch();
         // Delete files older than max age
