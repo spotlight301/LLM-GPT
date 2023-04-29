@@ -166,15 +166,13 @@ void LM::InferencePool::cleanup() {
 }
 
 void LM::InferencePool::cleanup(time_t max_age) {
-    std::chrono::time_point oldest_allowed = std::chrono::system_clock::now() - std::chrono::seconds(max_age);
+    const auto current_time = std::chrono::system_clock::now();
     // Collect files
     const auto prefix = get_slot_filename_prefix();
     for (auto& file : std::filesystem::directory_iterator(".")) {
         if (file.path().filename().string().find(prefix) != 0) continue;
-        // Get file age
-        const auto age = file.last_write_time().time_since_epoch();
         // Delete files older than max age
-        if (age < oldest_allowed.time_since_epoch()) {
+        if (current_time.time_since_epoch() - std::chrono::duration_cast<std::chrono::system_clock::duration>(file.last_write_time().time_since_epoch()) > std::chrono::seconds(max_age)) {
             std::error_code ec;
             std::filesystem::remove(file, ec);
         }
