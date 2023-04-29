@@ -165,14 +165,22 @@ void LM::InferencePool::cleanup() {
     }
 }
 
+template<typename TP>
+std::time_t to_time_t(TP tp) {
+    using namespace std::chrono;
+    auto sctp = time_point_cast<system_clock::duration>(tp - TP::clock::now()
+              + system_clock::now());
+    return system_clock::to_time_t(sctp);
+}
+
 void LM::InferencePool::cleanup(time_t max_age) {
-    const auto current_time = std::chrono::system_clock::now();
+    const auto current_time = to_time_t(std::chrono::system_clock::now());
     // Collect files
     const auto prefix = get_slot_filename_prefix();
     for (auto& file : std::filesystem::directory_iterator(".")) {
         if (file.path().filename().string().find(prefix) != 0) continue;
         // Delete files older than max age
-        if (current_time.time_since_epoch() - std::chrono::duration_cast<std::chrono::system_clock::duration>(file.last_write_time().time_since_epoch()) > std::chrono::seconds(max_age)) {
+        if (current_time - to_time_t(file.last_write_time()) > max_age) {
             std::error_code ec;
             std::filesystem::remove(file, ec);
         }
