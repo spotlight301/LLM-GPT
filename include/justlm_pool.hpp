@@ -82,7 +82,17 @@ class InferencePool {
 
 public:
     // The pool_name must be unique amonst all applications in cwd
-    InferencePool(size_t size, const std::string& pool_name, bool clean_up = true);
+    InferencePool(size_t size, const std::string& pool_name, bool clean_up = true)
+            : pool_name(pool_name) {
+        // Make sure size isn't zero
+        if (size == 0) size = 1;
+        // Create slots as requested
+        slots.resize(size);
+        // Clean up previous slots as requested
+        if (clean_up) {
+            cleanup();
+        }
+    }
     ~InferencePool() {
         if (store_on_destruct) {
             store_all();
@@ -98,6 +108,9 @@ public:
     void delete_inference(size_t id);
     void store_all();
     std::vector<size_t> get_active_slot_ids() const;
+
+    void cleanup();
+    void cleanup(time_t max_age/*seconds*/);
 
     void set_store_on_destruct(bool v) {
         store_on_destruct = v;

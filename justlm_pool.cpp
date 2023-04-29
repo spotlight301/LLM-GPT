@@ -112,26 +112,6 @@ LM::InferencePool::Slot *LM::InferencePool::find_slot_by_id(size_t id, bool dese
     return nullptr;
 }
 
-LM::InferencePool::InferencePool(size_t size, const std::string &pool_name, bool clean_up) : pool_name(pool_name) {
-    // Make sure size isn't zero
-    if (size == 0) size = 1;
-    // Create slots as requested
-    slots.reserve(size);
-    for (size_t c = 0; c != size; c++) {
-        slots.emplace_back(Slot());
-    }
-    // Clean up previous slots as requested
-    if (clean_up) {
-        const auto prefix = get_slot_filename_prefix();
-        for (const auto& file : std::filesystem::directory_iterator(".")) {
-            if (file.path().filename().string().find(prefix) == 0) {
-                std::error_code ec;
-                std::filesystem::remove(file, ec);
-            }
-        }
-    }
-}
-
 std::optional<std::reference_wrapper<LM::Inference> > LM::InferencePool::get_inference(size_t id) {
     auto slot = find_slot_by_id(id);
     if (slot) {
@@ -173,4 +153,28 @@ std::vector<size_t> LM::InferencePool::get_active_slot_ids() const {
         fres.push_back(slot.get_id());
     }
     return fres;
+}
+
+void LM::InferencePool::cleanup() {
+    // Collect files
+    const auto prefix = get_slot_filename_prefix();
+    for (auto& file : std::filesystem::directory_iterator(".")) {
+        std::error_code ec;
+        std::filesystem::remove(file, ec);
+    }
+}
+
+void LM::InferencePool::cleanup(time_t max_age) {
+    std::chrono::time_point oldest_allowed = std::chrono::system_clock::now() - std::chrono::seconds(max_age);
+    // Collect files
+    const auto prefix = get_slot_filename_prefix();
+    for (auto& file : std::filesystem::directory_iterator(".")) {
+        // Get file age
+        const auto age = file.last_write_time().time_since_epoch();
+        // Delete files older than max age
+        if (age < oldest_allowed.time_since_epoch()) {
+            std::error_code ec;
+            std::filesystem::remove(file, ec);
+        }
+    }
 }
