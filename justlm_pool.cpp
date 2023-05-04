@@ -21,7 +21,7 @@ LM_SCHEDULABLE(bool) LM::InferencePool::store_slot(Slot &slot) {
     }
     // Serialize instance
     try {
-        inference->serialize(f);
+        LM_COAWAIT inference->serialize(f);
     } catch (...) {
         LM_CORETURN false;
     }
