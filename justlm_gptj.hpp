@@ -67,12 +67,12 @@ class GPTJInference final : public Inference {
 
     // This function reduces the size of our tokens vector according to some parameters
     // All tokens will be evaluated if scrolling was needed and true will be returned
-    bool window_scroll() {
+    LM_SCHEDULABLE(bool) window_scroll() {
         auto &state = get_state();
         // Check that we actually need to scroll
         if (state->tokens.size() <= params.n_ctx) {
             // Nope
-            return false;
+            LM_CORETURN false;
         }
         // Start scrolling
         if (params.scroll_keep > 0.0f) {
@@ -89,12 +89,12 @@ class GPTJInference final : public Inference {
             state->tokens.resize(params.n_ctx_window_top_bar);
         }
         // Evaluate tokens
-        evaluate_tokens(0, on_scroll);
+        LM_COAWAIT evaluate_tokens(0, on_scroll);
         // We've scrolled!
-        return true;
+        LM_CORETURN true;
     }
 
-    void evaluate_tokens(size_t starting_offset, const std::function<bool (float)> &on_tick = nullptr) {
+    LM_SCHEDULABLE(void) evaluate_tokens(size_t starting_offset, const std::function<bool (float)> &on_tick = nullptr) {
         auto& state = get_state();
 
         // Evaluate tokens in batches
@@ -126,6 +126,8 @@ class GPTJInference final : public Inference {
 
         // Notify about completion
         if (on_tick) on_tick(100.f);
+
+        LM_CORETURN;
     }
 
 public:
@@ -136,7 +138,7 @@ public:
         deinit();
     }
 
-    void append(const std::string& prompt, const std::function<bool (float)> &on_tick = nullptr) override {
+    LM_SCHEDULABLE(void) append(const std::string& prompt, const std::function<bool (float)> &on_tick = nullptr) override {
         auto& state = get_state();
 
         // Append to current prompt
@@ -154,16 +156,16 @@ public:
         );
 
         // Make sure token limit isn't being hit
-        if (window_scroll()) {
+        if (LM_COAWAIT window_scroll()) {
             // That function already has evaluated our tokens since scrolling was needed
-            return;
+            LM_CORETURN;
         }
 
         // Evaluate new tokens
-        evaluate_tokens(old_token_count, on_tick);
+        LM_COAWAIT evaluate_tokens(old_token_count, on_tick);
     }
 
-    std::string run(std::string_view end, const std::function<bool (const char *)> &on_tick = nullptr) override {
+    LM_SCHEDULABLE(std::string) run(std::string_view end, const std::function<bool (const char *)> &on_tick = nullptr) override {
         auto& state = get_state();
         std::string fres;
 
@@ -187,7 +189,7 @@ public:
             }
 
             // Make sure token limit isn't being hit
-            window_scroll();
+            LM_COAWAIT window_scroll();
 
             // Get token as string
             const auto str = state->vocab.id_to_token[id];
@@ -211,7 +213,7 @@ public:
         }
 
         // Return final string
-        return fres;
+        LM_CORETURN fres;
     }
 
     unsigned get_context_size() const override {
@@ -219,28 +221,31 @@ public:
     }
 
     //TODO: The following functions are just a stub implementations and should be implemented properly asap
-    void create_savestate(Savestate &sv) const override {
+    LM_SCHEDULABLE(void) create_savestate(Savestate &sv) const override {
         auto& state = get_state();
         sv.prompt = state->prompt;
         sv.ctx = generic_state;
+        LM_CORETURN;
     }
-    void restore_savestate(const Savestate &sv) override {
+    LM_SCHEDULABLE(void) restore_savestate(const Savestate &sv) override {
         auto& state = get_state();
         if (sv.ctx != generic_state)
             throw Exception("Savestate does not match context");
         reinit();
-        append(sv.prompt);
+        LM_COAWAIT append(sv.prompt);
+        LM_CORETURN;
     }
 
-    void serialize(std::ostream &o) const override {
+    LM_SCHEDULABLE(void) serialize(std::ostream &o) const override {
         auto& state = get_state();
         size_t size = state->prompt.size();
         o.write(reinterpret_cast<const char*>(&size), sizeof(size));
         if (!o.write(state->prompt.data(), size)) {
             throw Exception("Failed to serialize prompt");
         }
+        LM_CORETURN;
     }
-    void deserialize(std::istream &i) override {
+    LM_SCHEDULABLE(void) deserialize(std::istream &i) override {
         auto& state = get_state();
         std::string prompt;
         size_t size;
@@ -252,7 +257,8 @@ public:
             throw Exception("Failed to deserialize prompt");
         }
         reinit();
-        append(prompt);
+        LM_COAWAIT append(prompt);
+        LM_CORETURN;
     }
 
     const std::string &get_prompt() const override {

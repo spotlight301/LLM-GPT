@@ -6,8 +6,8 @@
 
 
 
-bool LM::InferencePool::store_slot(Slot &slot) {
-    auto& inference = slot.get_inference();
+LM_SCHEDULABLE(bool) LM::InferencePool::store_slot(Slot &slot) {
+    auto inference = slot.get_inference().lock();
     // Open output file
     std::ofstream f(get_slot_filename(slot.get_id()), std::ios::binary);
     // Write weights path
@@ -16,62 +16,62 @@ bool LM::InferencePool::store_slot(Slot &slot) {
     f.write(reinterpret_cast<const char*>(&weights_path_len), sizeof(weights_path_len));
     f.write(weights_path.data(), weights_path.size());
     // Write params
-    if (!f.write(reinterpret_cast<const char*>(&inference.params), sizeof(inference.params))) {
-        return false;
+    if (!f.write(reinterpret_cast<const char*>(&inference->params), sizeof(inference->params))) {
+        LM_CORETURN false;
     }
     // Serialize instance
     try {
-        inference.serialize(f);
+        inference->serialize(f);
     } catch (...) {
-        return false;
+        LM_CORETURN false;
     }
     // Return success
-    return true;
+    LM_CORETURN true;
 }
 
-LM::InferencePool::Slot *LM::InferencePool::load_slot(size_t id, Slot *suggested_slot) {
+LM_SCHEDULABLE(LM::InferencePool::Slot*) LM::InferencePool::load_slot(size_t id, Slot *suggested_slot) {
     // Open input file
     std::ifstream f(get_slot_filename(id), std::ios::binary);
     if (!f) {
         // Does not exist
-        return nullptr;
+        LM_CORETURN nullptr;
     }
     // Read weights path
     std::string weights_path;
     uint32_t weights_path_len;
     if (!f.read(reinterpret_cast<char*>(&weights_path_len), sizeof(weights_path_len))) {
-        return nullptr;
+        LM_CORETURN nullptr;
     }
     weights_path.resize(weights_path_len);
     if (!f.read(weights_path.data(), weights_path.size())) {
-        return nullptr;
+        LM_CORETURN nullptr;
     }
     // Read params
     LM::Inference::Params p;
     if (!f.read(reinterpret_cast<char*>(&p), sizeof(p))) {
-        return nullptr;
+        LM_CORETURN nullptr;
     }
     // Create instance
-    auto& slot = suggested_slot?*suggested_slot:get_free_slot();
-    auto& inference = slot.create_inference(id, weights_path, p);
+    auto& slot = suggested_slot?*suggested_slot:*(LM_COAWAIT get_free_slot());
+    auto inference = slot.create_inference(id, weights_path, p).lock();
     // Deserialize instance
     try {
-        inference.deserialize(f);
+        LM_COAWAIT inference->deserialize(f);
     } catch (...) {
         slot.reset();
-        return nullptr;
+        LM_CORETURN nullptr;
     }
     // Return final slot
-    return &slot;
+    LM_CORETURN &slot;
 }
 
-LM::InferencePool::Slot &LM::InferencePool::get_free_slot() {
+LM_SCHEDULABLE(LM::InferencePool::Slot*) LM::InferencePool::get_free_slot() {
     // Attempt to find free slot while finding oldest one
     Slot *oldest = nullptr;
     for (auto& slot : slots) {
         // Take free slot
         if (slot.is_free()) {
-            return slot;
+            LM_CORETURN &slot;
         }
         // Update oldest
         if (oldest == nullptr || slot.get_last_access() < oldest->get_last_access()) {
@@ -80,17 +80,17 @@ LM::InferencePool::Slot &LM::InferencePool::get_free_slot() {
     }
     // Free up oldest slot and take that one
     // Note: Since there has to be at least 1 slot, oldest is never going to be a nullptr
-    store_and_reset_slot(*oldest);
-    return *oldest;
+    LM_COAWAIT store_and_reset_slot(*oldest);
+    LM_CORETURN oldest;
 }
 
-LM::InferencePool::Slot *LM::InferencePool::find_slot_by_id(size_t id, bool deserialize) {
+LM_SCHEDULABLE(LM::InferencePool::Slot*) LM::InferencePool::find_slot_by_id(size_t id, bool deserialize) {
     // Attempt to find given slot while finding oldest one
     Slot *oldest = nullptr;
     for (auto& slot : slots) {
         // Take slot with ID
         if (slot.get_id() == id) {
-            return &slot;
+            LM_CORETURN &slot;
         }
         // Update oldest
         if (oldest == nullptr || slot.get_last_access() < oldest->get_last_access()) {
@@ -99,38 +99,38 @@ LM::InferencePool::Slot *LM::InferencePool::find_slot_by_id(size_t id, bool dese
     }
     // Slot not found, attempt to load it
     if (deserialize) {
-        if (!oldest->is_free()) store_slot(*oldest);
-        if (!load_slot(id, oldest)) {
+        if (!oldest->is_free()) LM_COAWAIT store_slot(*oldest);
+        if (!LM_COAWAIT load_slot(id, oldest)) {
             // In case slot loading failed, still reset slot for later use
             //TODO: Make this configurable
             oldest->reset();
         } else {
-            return oldest;
+            LM_CORETURN oldest;
         }
     }
     // Slot not found
-    return nullptr;
+    LM_CORETURN nullptr;
 }
 
-std::optional<std::reference_wrapper<LM::Inference> > LM::InferencePool::get_inference(size_t id) {
-    auto slot = find_slot_by_id(id);
+LM_SCHEDULABLE(std::weak_ptr<LM::Inference>) LM::InferencePool::get_inference(size_t id) {
+    auto slot = LM_COAWAIT find_slot_by_id(id);
     if (slot) {
-        return slot->get_inference(true);
+        LM_CORETURN slot->get_inference(true);
     }
-    return {};
+    LM_CORETURN {};
 }
 
-LM::Inference &LM::InferencePool::get_or_create_inference(size_t id, const std::string &weights_path, const Inference::Params &p) {
-    auto slot = find_slot_by_id(id);
+LM_SCHEDULABLE(std::weak_ptr<LM::Inference>) LM::InferencePool::get_or_create_inference(size_t id, const std::string &weights_path, const Inference::Params &p) {
+    auto slot = LM_COAWAIT find_slot_by_id(id);
     if (slot) {
-        return slot->get_inference(true);
+        LM_CORETURN slot->get_inference(true);
     }
-    slot = &get_free_slot();
-    return slot->create_inference(id, weights_path, p);
+    slot = LM_COAWAIT get_free_slot();
+    LM_CORETURN slot->create_inference(id, weights_path, p);
 }
 
-void LM::InferencePool::delete_inference(size_t id) {
-    auto slot = find_slot_by_id(id, false);
+LM_SCHEDULABLE(void) LM::InferencePool::delete_inference(size_t id) {
+    auto slot = LM_COAWAIT find_slot_by_id(id, false);
     // Reset slot
     if (slot) {
         slot->reset();
@@ -140,11 +140,12 @@ void LM::InferencePool::delete_inference(size_t id) {
     std::filesystem::remove(get_slot_filename(id), ec);
 }
 
-void LM::InferencePool::store_all() {
+LM_SCHEDULABLE(void) LM::InferencePool::store_all() {
     for (auto& slot : slots) {
         if (slot.is_free()) continue;
-        store_slot(slot);
+        LM_COAWAIT store_slot(slot);
     }
+    LM_CORETURN;
 }
 
 std::vector<size_t> LM::InferencePool::get_active_slot_ids() const {

@@ -45,12 +45,12 @@ class LLaMaInference final : public Inference {
 
     // This function reduces the size of our tokens vector according to some parameters
     // All tokens will be evaluated if scrolling was needed and true will be returned
-    bool window_scroll() {
+    LM_SCHEDULABLE(bool) window_scroll() {
         auto &state = get_state();
         // Check that we actually need to scroll
         if (state->tokens.size() <= state->n_ctx) {
             // Nope
-            return false;
+            LM_CORETURN false;
         }
         // Start scrolling
         if (params.scroll_keep > 0.0f) {
@@ -67,12 +67,12 @@ class LLaMaInference final : public Inference {
             state->tokens.resize(params.n_ctx_window_top_bar);
         }
         // Evaluate tokens
-        evaluate_tokens(0, on_scroll);
+        LM_COAWAIT evaluate_tokens(0, on_scroll);
         // We've scrolled!
-        return true;
+        LM_CORETURN true;
     }
 
-    void evaluate_tokens(size_t starting_offset, const std::function<bool (float)> &on_tick = nullptr) {
+    LM_SCHEDULABLE(void) evaluate_tokens(size_t starting_offset, const std::function<bool (float)> &on_tick = nullptr) {
         auto& state = get_state();
 
         // Evaluate tokens in batches
@@ -87,8 +87,9 @@ class LLaMaInference final : public Inference {
             if (on_tick) {
                 // Calculate progress
                 auto progress = float(it-starting_offset) / (state->tokens.size()-starting_offset) * 100.f;
-                // Run callback
+                // Tick and yield
                 if (!on_tick(progress)) break;
+                LM_TASKYIELD;
             }
         }
 
@@ -101,6 +102,8 @@ class LLaMaInference final : public Inference {
 
         // Notify about completion
         if (on_tick) on_tick(100.f);
+
+        LM_CORETURN;
     }
 
 public:
@@ -116,7 +119,7 @@ public:
         }
     }
 
-    void append(const std::string& prompt, const std::function<bool (float)> &on_tick = nullptr) override {
+    LM_SCHEDULABLE(void) append(const std::string& prompt, const std::function<bool (float)> &on_tick = nullptr) override {
         auto& state = get_state();
 
         // Check if prompt was empty
@@ -134,16 +137,16 @@ public:
         state->tokens.resize(old_token_count+token_count);
 
         // Make sure token limit isn't being hit
-        if (window_scroll()) {
+        if (LM_COAWAIT window_scroll()) {
             // That function already has evaluated our tokens since scrolling was needed
-            return;
+            LM_CORETURN;
         }
 
         // Evaluate new tokens
-        evaluate_tokens(old_token_count, on_tick);
+        LM_COAWAIT evaluate_tokens(old_token_count, on_tick);
     }
 
-    std::string run(std::string_view end, const std::function<bool (const char *)> &on_tick = nullptr) override {
+    LM_SCHEDULABLE(std::string) run(std::string_view end, const std::function<bool (const char *)> &on_tick = nullptr) override {
         auto& state = get_state();
         std::string fres;
 
@@ -168,7 +171,7 @@ public:
             }
 
             // Make sure token limit isn't hit
-            window_scroll();
+            LM_COAWAIT window_scroll();
 
             // Get token as string
             const auto str = llama_token_to_str(state->ctx, id);
@@ -180,8 +183,9 @@ public:
             //  TODO: Respect batch size
             llama_eval(state->ctx, state->tokens.data()+state->tokens.size()-1, 1, state->tokens.size()-1, params.n_threads);
 
-            // Tick
+            // Tick and yield
             if (on_tick && !on_tick(str)) abort = true;
+            LM_TASKYIELD;
         }
 
         // Create final string  TODO: Could be optimized
@@ -191,31 +195,33 @@ public:
         }
 
         // Return final string
-        return fres;
+        LM_CORETURN fres;
     }
 
     unsigned get_context_size() const override {
         return get_state()->tokens.size();
     }
 
-    void create_savestate(Savestate &sv) const override {
+    LM_SCHEDULABLE(void) create_savestate(Savestate &sv) const override {
         auto& state = get_state();
         sv.buf.resize(llama_get_state_size(state->ctx));
         llama_copy_state_data(state->ctx, sv.buf.data());
         sv.tokens = state->tokens;
         sv.prompt = state->prompt;
         sv.ctx = generic_state;
+        LM_CORETURN;
     }
-    void restore_savestate(const Savestate &sv) override {
+    LM_SCHEDULABLE(void) restore_savestate(const Savestate &sv) override {
         auto& state = get_state();
         if (sv.ctx != generic_state)
             throw Exception("Savestate does not match context");
         llama_set_state_data(state->ctx, sv.buf.data());
         state->tokens = sv.tokens;
         state->prompt = sv.prompt;
+        LM_CORETURN;
     }
 
-    void serialize(std::ostream &o) const override {
+    LM_SCHEDULABLE(void) serialize(std::ostream &o) const override {
         auto& state = get_state();
         // Get state size
         auto state_size = llama_get_state_size(state->ctx);
@@ -239,8 +245,9 @@ public:
         if (!o.write(reinterpret_cast<const char*>(state_buf.data()), state_size)) {
             throw Exception("Failed to serialize state");
         }
+        LM_CORETURN;
     }
-    void deserialize(std::istream &i) override {
+    LM_SCHEDULABLE(void) deserialize(std::istream &i) override {
         auto& state = get_state();
         uint32_t n_ctx, embd_size, prompt_size, state_size;
         // Initialization to prevent compiler complaints
@@ -270,6 +277,7 @@ public:
             throw Exception("Failed to deserialize state");
         }
         llama_set_state_data(state->ctx, state_buf.data());
+        LM_CORETURN;
     }
 
     const std::string &get_prompt() const override {

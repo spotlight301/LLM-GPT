@@ -1,5 +1,18 @@
 #ifndef JUSTLM_HPP
 #define JUSTLM_HPP
+#ifdef LM_COSCHED
+#   include <scheduler.hpp>
+#   define LM_SCHEDULABLE(type) async::result<type>
+#   define LM_CORETURN co_return
+#   define LM_COAWAIT co_await
+#   define LM_TASKYIELD (co_await ::CoSched::Task::get_current().yield())
+#else
+#   define LM_SCHEDULABLE(type) type
+#   define LM_CORETURN return
+#   define LM_COAWAIT
+#   define LM_TASKYIELD
+#endif
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -22,7 +35,6 @@ protected:
     }
 
 public:
-
     struct Exception : public std::runtime_error {
         using std::runtime_error::runtime_error;
     };
@@ -79,18 +91,18 @@ public:
     }
 
     // This must be called with a non-empty prompt!
-    virtual void append(const std::string& prompt, const std::function<bool (float progress)>& on_tick = nullptr) = 0;
+    virtual LM_SCHEDULABLE(void) append(const std::string& prompt, const std::function<bool (float progress)>& on_tick = nullptr) = 0;
 
     // append() must have been called at least once before calling this!
-    virtual std::string run(std::string_view end = "", const std::function<bool (const char *generated)>& on_tick = nullptr) = 0;
+    virtual LM_SCHEDULABLE(std::string) run(std::string_view end = "", const std::function<bool (const char *generated)>& on_tick = nullptr) = 0;
 
     virtual unsigned get_context_size() const = 0;
 
-    virtual void create_savestate(Savestate&) const = 0;
-    virtual void restore_savestate(const Savestate&) = 0;
+    virtual LM_SCHEDULABLE(void) create_savestate(Savestate&) const = 0;
+    virtual LM_SCHEDULABLE(void) restore_savestate(const Savestate&) = 0;
 
-    virtual void serialize(std::ostream&) const = 0;
-    virtual void deserialize(std::istream&) = 0;
+    virtual LM_SCHEDULABLE(void) serialize(std::ostream&) const = 0;
+    virtual LM_SCHEDULABLE(void) deserialize(std::istream&) = 0;
 
     virtual const std::string& get_prompt() const = 0;
 };

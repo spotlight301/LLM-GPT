@@ -7,6 +7,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(LM_PYBIND No CACHE BOOL "If python bindings should be build")
+set(LM_COSCHED No CACHE BOOL "If CoSched should be made use of")
+
+if (LM_COSCHED)
+    set(CMAKE_CXX_STANDARD 20)
+endif()
 
 add_subdirectory(llama.cpp)
 add_library(libjustlm STATIC
@@ -17,7 +22,16 @@ add_library(libjustlm STATIC
 )
 target_link_libraries(libjustlm PRIVATE llama)
 
+if (LM_COSCHED)
+    target_compile_definitions(libjustlm PUBLIC LM_COSCHED)
+    target_link_libraries(libjustlm PRIVATE cosched)
+endif()
+
 if (LM_PYBIND)
+    if (LM_COSCHED)
+        message(FATAL_ERROR "Pybind can't be enabled in combination with CoSched")
+    endif()
+
     find_package(Python COMPONENTS Interpreter Development)
     find_package(pybind11 CONFIG)
     pybind11_add_module(libjustlm_py pybind.cpp)
