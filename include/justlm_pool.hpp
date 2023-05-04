@@ -30,13 +30,13 @@ class InferencePool {
         bool is_free() const {
             return inference == nullptr;
         }
-        std::weak_ptr<Inference> create_inference(size_t id, const std::string& weights_path, const Inference::Params& p) {
+        std::shared_ptr<Inference> create_inference(size_t id, const std::string& weights_path, const Inference::Params& p) {
             this->id = id;
             this->weights_path = weights_path;
             inference.reset(Inference::construct(weights_path, p));
             return get_inference(true);
         }
-        std::weak_ptr<Inference> get_inference(bool update_last_access = false) {
+        std::shared_ptr<Inference> get_inference(bool update_last_access = false) {
             if (update_last_access) last_access = std::chrono::system_clock::now();
             return inference;
         }
@@ -93,12 +93,12 @@ public:
         }
     }
 
-    LM_SCHEDULABLE(std::weak_ptr<Inference>) create_inference(size_t id, const std::string& weights_path, const Inference::Params& p) {
+    LM_SCHEDULABLE(std::shared_ptr<Inference>) create_inference(size_t id, const std::string& weights_path, const Inference::Params& p) {
         auto slot = LM_COAWAIT get_free_slot();
         LM_CORETURN slot->create_inference(id, weights_path, p);
     }
-    LM_SCHEDULABLE(std::weak_ptr<Inference>) get_inference(size_t id);
-    LM_SCHEDULABLE(std::weak_ptr<Inference>) get_or_create_inference(size_t id, const std::string& weights_path, const Inference::Params& p);
+    LM_SCHEDULABLE(std::shared_ptr<Inference>) get_inference(size_t id);
+    LM_SCHEDULABLE(std::shared_ptr<Inference>) get_or_create_inference(size_t id, const std::string& weights_path, const Inference::Params& p);
     LM_SCHEDULABLE(void) delete_inference(size_t id);
     LM_SCHEDULABLE(void) store_all();
     std::vector<size_t> get_active_slot_ids() const;

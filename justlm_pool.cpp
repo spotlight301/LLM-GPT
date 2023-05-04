@@ -7,7 +7,7 @@
 
 
 LM_SCHEDULABLE(bool) LM::InferencePool::store_slot(Slot &slot) {
-    auto inference = slot.get_inference().lock();
+    auto inference = slot.get_inference();
     // Open output file
     std::ofstream f(get_slot_filename(slot.get_id()), std::ios::binary);
     // Write weights path
@@ -53,7 +53,7 @@ LM_SCHEDULABLE(LM::InferencePool::Slot*) LM::InferencePool::load_slot(size_t id,
     }
     // Create instance
     auto& slot = suggested_slot?*suggested_slot:*(LM_COAWAIT get_free_slot());
-    auto inference = slot.create_inference(id, weights_path, p).lock();
+    auto inference = slot.create_inference(id, weights_path, p);
     // Deserialize instance
     try {
         LM_COAWAIT inference->deserialize(f);
@@ -112,7 +112,7 @@ LM_SCHEDULABLE(LM::InferencePool::Slot*) LM::InferencePool::find_slot_by_id(size
     LM_CORETURN nullptr;
 }
 
-LM_SCHEDULABLE(std::weak_ptr<LM::Inference>) LM::InferencePool::get_inference(size_t id) {
+LM_SCHEDULABLE(std::shared_ptr<LM::Inference>) LM::InferencePool::get_inference(size_t id) {
     auto slot = LM_COAWAIT find_slot_by_id(id);
     if (slot) {
         LM_CORETURN slot->get_inference(true);
@@ -120,7 +120,7 @@ LM_SCHEDULABLE(std::weak_ptr<LM::Inference>) LM::InferencePool::get_inference(si
     LM_CORETURN {};
 }
 
-LM_SCHEDULABLE(std::weak_ptr<LM::Inference>) LM::InferencePool::get_or_create_inference(size_t id, const std::string &weights_path, const Inference::Params &p) {
+LM_SCHEDULABLE(std::shared_ptr<LM::Inference>) LM::InferencePool::get_or_create_inference(size_t id, const std::string &weights_path, const Inference::Params &p) {
     auto slot = LM_COAWAIT find_slot_by_id(id);
     if (slot) {
         LM_CORETURN slot->get_inference(true);
