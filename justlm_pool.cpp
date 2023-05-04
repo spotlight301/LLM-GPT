@@ -117,7 +117,7 @@ LM_SCHEDULABLE(std::weak_ptr<LM::Inference>) LM::InferencePool::get_inference(si
     if (slot) {
         LM_CORETURN slot->get_inference(true);
     }
-    LM_CORETURN {};
+    LM_CORETURN nullptr;
 }
 
 LM_SCHEDULABLE(std::weak_ptr<LM::Inference>) LM::InferencePool::get_or_create_inference(size_t id, const std::string &weights_path, const Inference::Params &p) {
