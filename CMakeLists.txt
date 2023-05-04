@@ -6,8 +6,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-set(LM_PYBIND No CACHE BOOL "If python bindings should be build")
-set(LM_COSCHED No CACHE BOOL "If CoSched should be made use of")
+set(LM_PYBIND No CACHE BOOL "If Libjustlm Python bindings should be build")
+set(LM_COSCHED No CACHE BOOL "If Libjustlm should make use of CoSched")
 
 if (LM_COSCHED)
     set(CMAKE_CXX_STANDARD 20)
