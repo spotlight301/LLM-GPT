@@ -2,7 +2,7 @@
 #define JUSTLM_HPP
 #ifdef LM_COSCHED
 #   include <scheduler.hpp>
-#   define LM_SCHEDULABLE(type) async::result<type>
+#   define LM_SCHEDULABLE(type) ::CoSched::AwaitableTask<type>
 #   define LM_CORETURN co_return
 #   define LM_COAWAIT co_await
 #   define LM_TASKYIELD (co_await ::CoSched::Task::get_current().yield())
