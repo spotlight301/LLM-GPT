@@ -88,8 +88,8 @@ class LLaMaInference final : public Inference {
                 // Calculate progress
                 auto progress = float(it-starting_offset) / (state->tokens.size()-starting_offset) * 100.f;
                 // Tick and yield
-                if (!on_tick(progress)) break;
-                LM_TASKYIELD;
+                if (!on_tick(progress)) LM_CORETURN;
+                else if (!LM_TASKYIELD) LM_CORETURN;
             }
         }
 
@@ -185,7 +185,7 @@ public:
 
             // Tick and yield
             if (on_tick && !on_tick(str)) abort = true;
-            LM_TASKYIELD;
+            else if (!LM_TASKYIELD) abort = true;
         }
 
         // Create final string  TODO: Could be optimized

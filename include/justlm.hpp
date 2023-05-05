@@ -10,7 +10,7 @@
 #   define LM_SCHEDULABLE(type) type
 #   define LM_CORETURN return
 #   define LM_COAWAIT
-#   define LM_TASKYIELD
+#   define LM_TASKYIELD (true)
 #endif
 
 #include <iostream>

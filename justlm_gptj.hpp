@@ -110,8 +110,9 @@ class GPTJInference final : public Inference {
             if (on_tick) {
                 // Calculate progress
                 auto progress = float(it-starting_offset) / (state->tokens.size()-starting_offset) * 100.f;
-                // Run callback
-                if (!on_tick(progress)) break;
+                // Tick and yield
+                if (!on_tick(progress)) LM_CORETURN;
+                else if (!LM_TASKYIELD) LM_CORETURN;
             }
         }
 
@@ -204,6 +205,7 @@ public:
 
             // Tick
             if (on_tick && !on_tick(str.c_str())) abort = true;
+            else if (!LM_TASKYIELD) abort = true;
         }
 
         // Create final string  TODO: Could be optimized
