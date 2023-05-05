@@ -78,8 +78,8 @@ public:
     Inference(const Inference&) = delete;
     Inference(Inference&) = delete;
     Inference(Inference&& o)
-        : params(o.params)
-        , generic_state(o.generic_state) {
+            : generic_state(o.generic_state)
+            , params(o.params) {
         o.generic_state = nullptr;
     }
 
