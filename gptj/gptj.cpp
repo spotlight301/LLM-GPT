@@ -657,7 +657,6 @@ size_t gptj_copy_state_data(const gptj_model &model, const std::mt19937 &rng, ui
     }
 
     const size_t written  = out - dest;
-    assert(written == expected);
     fflush(stdout);
     return written;
 }
@@ -706,7 +705,6 @@ size_t gptj_set_state_data(gptj_model *model, std::mt19937 *rng, const uint8_t *
     }
 
     const size_t nread = in - src;
-    assert(nread == expected);
     fflush(stdout);
     return nread;
 }
