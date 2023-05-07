@@ -45,7 +45,5 @@ PYBIND11_MODULE(libjustlm_py, m) {
         .def("get_or_create_inference", &InferencePool::create_inference, py::arg("id"), py::arg("weights_path"), py::arg("parameters"), py::return_value_policy::reference_internal)
         .def("delete_inference", &InferencePool::delete_inference, py::arg("id"))
         .def("store_all", &InferencePool::store_all)
-        .def("set_store_on_destruct", &InferencePool::set_store_on_destruct)
-        .def("is_stored_on_destruction", &InferencePool::is_stored_on_destruction)
         .def("get_active_slot_ids", &InferencePool::get_active_slot_ids);
 }

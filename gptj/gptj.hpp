@@ -39,6 +39,38 @@ struct gptj_layer {
     struct ggml_tensor * c_mlp_proj_b;
 };
 
+struct gptj_buffer {
+    uint8_t * addr = NULL;
+    size_t size = 0;
+
+    void resize(size_t size) {
+        delete[] addr;
+        addr = new uint8_t[size];
+        this->size = size;
+    }
+
+    ~gptj_buffer() {
+        delete[] addr;
+    }
+};
+
+struct gptj_kv_cache {
+    struct ggml_tensor * k;
+    struct ggml_tensor * v;
+
+    struct ggml_context * ctx = NULL;
+
+    gptj_buffer buf;
+
+    int n; // number of tokens currently in the cache
+
+    ~gptj_kv_cache() {
+        if (ctx) {
+            ggml_free(ctx);
+        }
+    }
+};
+
 struct gptj_model {
     gptj_hparams hparams;
 
@@ -54,16 +86,26 @@ struct gptj_model {
     std::vector<gptj_layer> layers;
 
     // key + value memory
-    struct ggml_tensor * memory_k;
-    struct ggml_tensor * memory_v;
+    struct gptj_kv_cache kv_self;
 
     //
     struct ggml_context * ctx;
     std::map<std::string, struct ggml_tensor *> tensors;
+
+    gptj_buffer buf;
+
+    ~gptj_model() {
+        if (ctx) {
+            ggml_free(ctx);
+        }
+    }
 };
 
+
 bool gptj_model_load(const std::string &fname, std::istream &fin, gptj_model & model, gpt_vocab & vocab);
-bool gptj_model_load(const std::string &fname, gptj_model &model, gpt_vocab & vocab);
-bool gptj_eval(const gptj_model& model, const int n_threads, const int n_past,
-               const std::vector<gpt_vocab::id>& embd_inp, std::vector<float>& embd_w, size_t& mem_per_token);
+bool gptj_model_load(const std::string & fname, gptj_model & model, gpt_vocab & vocab);
+bool gptj_eval(gptj_model& model, const int n_threads, const int n_past, const std::vector<gpt_vocab::id>& embd_inp, std::vector<float>& embd_w, size_t& mem_per_token);
+size_t gptj_get_state_size(const gptj_model &model);
+size_t gptj_copy_state_data(const gptj_model &model, const std::mt19937 &rng, uint8_t *dest);
+size_t gptj_set_state_data(gptj_model *model, std::mt19937 *rng, const uint8_t *src);
 #endif // GPTJ_HPP

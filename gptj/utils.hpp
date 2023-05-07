@@ -27,6 +27,13 @@ struct gpt_params {
     std::string model = "models/gpt-2-117M/ggml-model.bin"; // model path
     std::string prompt;
 };
+
+bool gpt_params_parse(int argc, char ** argv, gpt_params & params);
+
+void gpt_print_usage(int argc, char ** argv, const gpt_params & params);
+
+std::string gpt_random_prompt(std::mt19937 & rng);
+
 //
 // Vocab utils
 //
@@ -40,6 +47,9 @@ struct gpt_vocab {
 };
 
 void replace(std::string & str, const std::string & needle, const std::string & replacement);
+
+// poor-man's JSON parsing
+std::map<std::string, int32_t> json_parse(const std::string & fname);
 
 // split text into tokens
 //

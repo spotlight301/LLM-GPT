@@ -222,9 +222,11 @@ public:
         return get_state()->tokens.size();
     }
 
-    //TODO: The following functions are just a stub implementations and should be implemented properly asap
     LM_SCHEDULABLE(void) create_savestate(Savestate &sv) const override {
         auto& state = get_state();
+        sv.buf.resize(gptj_get_state_size(state->model));
+        gptj_copy_state_data(state->model, state->rng, sv.buf.data());
+        sv.tokens = state->tokens;
         sv.prompt = state->prompt;
         sv.ctx = generic_state;
         LM_CORETURN;
@@ -233,36 +235,67 @@ public:
         auto& state = get_state();
         if (sv.ctx != generic_state)
             throw Exception("Savestate does not match context");
-        reinit();
-        LM_COAWAIT append(sv.prompt);
+        gptj_set_state_data(&state->model, &state->rng, sv.buf.data());
+        state->tokens = sv.tokens;
+        state->prompt = sv.prompt;
         LM_CORETURN;
     }
 
     LM_SCHEDULABLE(void) serialize(std::ostream &o) const override {
         auto& state = get_state();
-        size_t size = state->prompt.size();
-        o.write(reinterpret_cast<const char*>(&size), sizeof(size));
-        if (!o.write(state->prompt.data(), size)) {
+        // Get state size
+        auto state_size = gptj_get_state_size(state->model);
+        // Write sizes
+        for (const uint32_t s : {state->tokens.size(), state->prompt.size(), state_size}) {
+            if (!o.write(reinterpret_cast<const char*>(&s), sizeof(s))) {
+                throw Exception("Failed to serialize data sizes");
+            }
+        }
+        // Write tokens
+        if (!o.write(reinterpret_cast<const char*>(state->tokens.data()), state->tokens.size()*sizeof(int))) {
+            throw Exception("Failed to serialize tokens");
+        }
+        // Write prompt
+        if (!o.write(state->prompt.data(), state->prompt.size())) {
             throw Exception("Failed to serialize prompt");
+        }
+        // Write state
+        std::vector<uint8_t> state_buf(state_size);
+        gptj_copy_state_data(state->model, state->rng, state_buf.data());
+        if (!o.write(reinterpret_cast<const char*>(state_buf.data()), state_size)) {
+            throw Exception("Failed to serialize state");
         }
         LM_CORETURN;
     }
     LM_SCHEDULABLE(void) deserialize(std::istream &i) override {
         auto& state = get_state();
-        std::string prompt;
-        size_t size;
-        if (!i.read(reinterpret_cast<char*>(&size), sizeof(size))) {
-            throw Exception("Failed to deserialize prompt size");
+        uint32_t embd_size, prompt_size, state_size;
+        // Initialization to prevent compiler complaints
+        embd_size = prompt_size = state_size = 0;
+        // Read sizes
+        for (uint32_t *s : {&embd_size, &prompt_size, &state_size}) {
+            if (!i.read(reinterpret_cast<char*>(s), sizeof(*s))) {
+                throw Exception("Failed to deserialize data sizes");
+            }
         }
-        prompt.resize(size);
-        if (!i.read(prompt.data(), size)) {
+        // Read tokens
+        state->tokens.resize(embd_size);
+        if (!i.read(reinterpret_cast<char*>(state->tokens.data()), state->tokens.size()*sizeof(int))) {
+            throw Exception("Failed to deserialize tokens");
+        }
+        // Read prompt
+        state->prompt.resize(prompt_size);
+        if (!i.read(state->prompt.data(), state->prompt.size())) {
             throw Exception("Failed to deserialize prompt");
         }
-        reinit();
-        LM_COAWAIT append(prompt);
+        // Read state
+        std::vector<uint8_t> state_buf(state_size);
+        if (!i.read(reinterpret_cast<char*>(state_buf.data()), state_buf.size())) {
+            throw Exception("Failed to deserialize state");
+        }
+        gptj_set_state_data(&state->model, &state->rng, state_buf.data());
         LM_CORETURN;
     }
-
     const std::string &get_prompt() const override {
         return get_state()->prompt;
     }
