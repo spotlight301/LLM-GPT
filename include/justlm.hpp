@@ -1,5 +1,11 @@
 #ifndef JUSTLM_HPP
 #define JUSTLM_HPP
+#include <iostream>
+#include <string>
+#include <vector>
+#include <functional>
+#include <memory>
+#include <thread>
 
 #ifdef LM_COSCHED
 #   include <scheduler.hpp>
@@ -16,22 +22,25 @@
 
 #ifdef LM_NOEXCEPT
 #   define LM_NOEXCEPTDECL noexcept
-#   define LM_THROW(t) this->last_error = (t); return;
+#   define LM_THROW(t, r) this->last_error = (t); LM_CORETURN r;
 #   define LM_LAST_ERROR_STORAGE mutable std::string last_error;
 #   define LM_LAST_ERROR_GETTER const std::string& get_last_error() const {return last_error;}
+#   define LM_ERRBOOL bool
+#   define LM_BOOL_ERROR false
+#   define LM_BOOL_SUCCESS true
+#   define LM_IF_ERROR(x) if (!x)
+#   define LM_ERROR_FORWARD(x) {auto v = x; if (!v) LM_CORETURN x;} 0
 #else
 #   define LM_NOEXCEPTDECL
-#   define LM_THROW(t) throw Exception(t)
+#   define LM_THROW(t, r) throw Exception(t)
 #   define LM_LAST_ERROR_STORAGE
 #   define LM_LAST_ERROR_GETTER
+#   define LM_ERRBOOL void
+#   define LM_BOOL_ERROR
+#   define LM_BOOL_SUCCESS
+#   define LM_IF_ERROR(x) if (false)
+#   define LM_ERROR_FORWARD(x) 0
 #endif
-
-#include <iostream>
-#include <string>
-#include <vector>
-#include <functional>
-#include <memory>
-#include <thread>
 
 
 namespace LM {
@@ -106,18 +115,18 @@ public:
     }
 
     // This must be called with a non-empty prompt!
-    virtual LM_SCHEDULABLE(void) append(const std::string& prompt, const std::function<bool (float progress)>& on_tick = nullptr) LM_NOEXCEPTDECL = 0;
+    virtual LM_SCHEDULABLE(LM_ERRBOOL) append(const std::string& prompt, const std::function<bool (float progress)>& on_tick = nullptr) LM_NOEXCEPTDECL = 0;
 
     // append() must have been called at least once before calling this!
     virtual LM_SCHEDULABLE(std::string) run(std::string_view end = "", const std::function<bool (const char *generated)>& on_tick = nullptr) LM_NOEXCEPTDECL = 0;
 
-    virtual unsigned get_context_size() const LM_NOEXCEPTDECL = 0;
+    virtual unsigned get_context_size() const noexcept = 0;
 
-    virtual LM_SCHEDULABLE(void) create_savestate(Savestate&) const LM_NOEXCEPTDECL = 0;
-    virtual LM_SCHEDULABLE(void) restore_savestate(const Savestate&) LM_NOEXCEPTDECL = 0;
+    virtual LM_SCHEDULABLE(LM_ERRBOOL) create_savestate(Savestate&) const LM_NOEXCEPTDECL = 0;
+    virtual LM_SCHEDULABLE(LM_ERRBOOL) restore_savestate(const Savestate&) LM_NOEXCEPTDECL = 0;
 
-    virtual LM_SCHEDULABLE(void) serialize(std::ostream&) const LM_NOEXCEPTDECL = 0;
-    virtual LM_SCHEDULABLE(void) deserialize(std::istream&) LM_NOEXCEPTDECL = 0;
+    virtual LM_SCHEDULABLE(LM_ERRBOOL) serialize(std::ostream&) const LM_NOEXCEPTDECL = 0;
+    virtual LM_SCHEDULABLE(LM_ERRBOOL) deserialize(std::istream&) LM_NOEXCEPTDECL = 0;
 
     virtual const std::string& get_prompt() const LM_NOEXCEPTDECL = 0;
 

@@ -21,7 +21,7 @@ class LLaMaInference final : public Inference {
         return *reinterpret_cast<State* const*>(&generic_state);
     }
 
-    void init(const std::string& weights_path) LM_NOEXCEPTDECL {
+    LM_ERRBOOL init(const std::string& weights_path) LM_NOEXCEPTDECL {
         auto& state = get_state();
 
         // Allocate state
@@ -36,11 +36,13 @@ class LLaMaInference final : public Inference {
         // Create context
         state->ctx = llama_init_from_file(weights_path.c_str(), lparams);
         if (!state->ctx) {
-            LM_THROW("Failed to initialize llama from file");
+            LM_THROW("Failed to initialize llama from file", LM_BOOL_ERROR);
         }
 
         // Initialize some variables
         state->n_ctx = llama_n_ctx(state->ctx);
+
+        return LM_BOOL_SUCCESS;
     }
 
     // This function reduces the size of our tokens vector according to some parameters
@@ -67,12 +69,10 @@ class LLaMaInference final : public Inference {
             state->tokens.resize(params.n_ctx_window_top_bar);
         }
         // Evaluate tokens
-        LM_COAWAIT evaluate_tokens(0, on_scroll);
-        // We've scrolled!
-        LM_CORETURN true;
+        LM_CORETURN LM_COAWAIT evaluate_tokens(0, on_scroll);
     }
 
-    LM_SCHEDULABLE(void) evaluate_tokens(size_t starting_offset, const std::function<bool (float)> &on_tick = nullptr) LM_NOEXCEPTDECL {
+    LM_SCHEDULABLE(LM_ERRBOOL) evaluate_tokens(size_t starting_offset, const std::function<bool (float)> &on_tick = nullptr) LM_NOEXCEPTDECL {
         auto& state = get_state();
 
         // Evaluate tokens in batches
@@ -81,29 +81,33 @@ class LLaMaInference final : public Inference {
             if (it + params.n_batch >= ssize_t(state->tokens.size())) break;
 
             // Evaluate
-            llama_eval(state->ctx, state->tokens.data()+it, params.n_batch, it, params.n_threads);
+            if (!llama_eval(state->ctx, state->tokens.data()+it, params.n_batch, it, params.n_threads)) {
+                LM_THROW("Failed to evaluate tokens in batches", LM_BOOL_ERROR);
+            }
 
             // Tick
             if (on_tick) {
                 // Calculate progress
                 auto progress = float(it-starting_offset) / (state->tokens.size()-starting_offset) * 100.f;
                 // Tick and yield
-                if (!on_tick(progress)) LM_CORETURN;
-                else if (!LM_TASKYIELD) LM_CORETURN;
+                if (!on_tick(progress)) LM_BOOL_SUCCESS;
+                else if (!LM_TASKYIELD) LM_BOOL_SUCCESS;
             }
         }
 
         // Evaluate remaining tokens
         if (it < state->tokens.size()) {
             for (; it != state->tokens.size(); it++) {
-                llama_eval(state->ctx, state->tokens.data()+it, 1, it, params.n_threads);
+                if (!llama_eval(state->ctx, state->tokens.data()+it, 1, it, params.n_threads)) {
+                    LM_THROW("Failed to evaluate individual tokens", LM_BOOL_ERROR);
+                }
             }
         }
 
         // Notify about completion
         if (on_tick) on_tick(100.f);
 
-        LM_CORETURN;
+        LM_CORETURN LM_BOOL_SUCCESS;
     }
 
 public:
@@ -119,7 +123,7 @@ public:
         }
     }
 
-    LM_SCHEDULABLE(void) append(const std::string& prompt, const std::function<bool (float)> &on_tick = nullptr) LM_NOEXCEPTDECL override {
+    LM_SCHEDULABLE(LM_ERRBOOL) append(const std::string& prompt, const std::function<bool (float)> &on_tick = nullptr) LM_NOEXCEPTDECL override {
         auto& state = get_state();
 
         // Check if prompt was empty
@@ -139,11 +143,11 @@ public:
         // Make sure token limit isn't being hit
         if (LM_COAWAIT window_scroll()) {
             // That function already has evaluated our tokens since scrolling was needed
-            LM_CORETURN;
+            LM_CORETURN LM_BOOL_SUCCESS;
         }
 
         // Evaluate new tokens
-        LM_COAWAIT evaluate_tokens(old_token_count, on_tick);
+        LM_CORETURN LM_COAWAIT evaluate_tokens(old_token_count, on_tick);
     }
 
     LM_SCHEDULABLE(std::string) run(std::string_view end, const std::function<bool (const char *)> &on_tick = nullptr) LM_NOEXCEPTDECL override {
@@ -181,7 +185,9 @@ public:
 
             // Evaluate token
             //  TODO: Respect batch size
-            llama_eval(state->ctx, state->tokens.data()+state->tokens.size()-1, 1, state->tokens.size()-1, params.n_threads);
+            if (!llama_eval(state->ctx, state->tokens.data()+state->tokens.size()-1, 1, state->tokens.size()-1, params.n_threads)) {
+                LM_THROW("Failed to evaluate new tokens", "");
+            }
 
             // Tick and yield
             if (on_tick && !on_tick(str)) abort = true;
@@ -198,56 +204,56 @@ public:
         LM_CORETURN fres;
     }
 
-    unsigned get_context_size() const LM_NOEXCEPTDECL override {
+    unsigned get_context_size() const noexcept override {
         return get_state()->tokens.size();
     }
 
-    LM_SCHEDULABLE(void) create_savestate(Savestate &sv) const LM_NOEXCEPTDECL override {
+    LM_SCHEDULABLE(LM_ERRBOOL) create_savestate(Savestate &sv) const LM_NOEXCEPTDECL override {
         auto& state = get_state();
         sv.buf.resize(llama_get_state_size(state->ctx));
         llama_copy_state_data(state->ctx, sv.buf.data());
         sv.tokens = state->tokens;
         sv.prompt = state->prompt;
         sv.ctx = generic_state;
-        LM_CORETURN;
+        LM_CORETURN LM_BOOL_SUCCESS;
     }
-    LM_SCHEDULABLE(void) restore_savestate(const Savestate &sv) LM_NOEXCEPTDECL override {
+    LM_SCHEDULABLE(LM_ERRBOOL) restore_savestate(const Savestate &sv) LM_NOEXCEPTDECL override {
         auto& state = get_state();
         if (sv.ctx != generic_state)
-            LM_THROW("Savestate does not match context");
+            LM_THROW("Savestate does not match context", LM_BOOL_ERROR);
         llama_set_state_data(state->ctx, sv.buf.data());
         state->tokens = sv.tokens;
         state->prompt = sv.prompt;
-        LM_CORETURN;
+        LM_CORETURN LM_BOOL_SUCCESS;
     }
 
-    LM_SCHEDULABLE(void) serialize(std::ostream &o) const LM_NOEXCEPTDECL override {
+    LM_SCHEDULABLE(LM_ERRBOOL) serialize(std::ostream &o) const LM_NOEXCEPTDECL override {
         auto& state = get_state();
         // Get state size
         auto state_size = llama_get_state_size(state->ctx);
         // Write sizes
         for (const uint32_t s : {static_cast<size_t>(state->n_ctx), state->tokens.size(), state->prompt.size(), state_size}) {
             if (!o.write(reinterpret_cast<const char*>(&s), sizeof(s))) {
-                LM_THROW("Failed to serialize data sizes");
+                LM_THROW("Failed to serialize data sizes", LM_BOOL_ERROR);
             }
         }
         // Write tokens
         if (!o.write(reinterpret_cast<const char*>(state->tokens.data()), state->tokens.size()*sizeof(int))) {
-            LM_THROW("Failed to serialize tokens");
+            LM_THROW("Failed to serialize tokens", LM_BOOL_ERROR);
         }
         // Write prompt
         if (!o.write(state->prompt.data(), state->prompt.size())) {
-            LM_THROW("Failed to serialize prompt");
+            LM_THROW("Failed to serialize prompt", LM_BOOL_ERROR);
         }
         // Write state
         std::vector<uint8_t> state_buf(state_size);
         llama_copy_state_data(state->ctx, state_buf.data());
         if (!o.write(reinterpret_cast<const char*>(state_buf.data()), state_size)) {
-            LM_THROW("Failed to serialize state");
+            LM_THROW("Failed to serialize state", LM_BOOL_ERROR);
         }
-        LM_CORETURN;
+        LM_CORETURN LM_BOOL_SUCCESS;
     }
-    LM_SCHEDULABLE(void) deserialize(std::istream &i) LM_NOEXCEPTDECL override {
+    LM_SCHEDULABLE(LM_ERRBOOL) deserialize(std::istream &i) LM_NOEXCEPTDECL override {
         auto& state = get_state();
         uint32_t n_ctx, embd_size, prompt_size, state_size;
         // Initialization to prevent compiler complaints
@@ -255,29 +261,29 @@ public:
         // Read sizes
         for (uint32_t *s : {&n_ctx, &embd_size, &prompt_size, &state_size}) {
             if (!i.read(reinterpret_cast<char*>(s), sizeof(*s))) {
-                LM_THROW("Failed to deserialize data sizes");
+                LM_THROW("Failed to deserialize data sizes", LM_BOOL_ERROR);
             }
         }
         if (state->n_ctx != n_ctx) {
-            LM_THROW("Context length differs (My "+std::to_string(state->n_ctx)+" vs. files "+std::to_string(n_ctx)+')');
+            LM_THROW("Context length differs (My "+std::to_string(state->n_ctx)+" vs. files "+std::to_string(n_ctx)+')', LM_BOOL_ERROR);
         }
         // Read tokens
         state->tokens.resize(embd_size);
         if (!i.read(reinterpret_cast<char*>(state->tokens.data()), state->tokens.size()*sizeof(int))) {
-            LM_THROW("Failed to deserialize tokens");
+            LM_THROW("Failed to deserialize tokens", LM_BOOL_ERROR);
         }
         // Read prompt
         state->prompt.resize(prompt_size);
         if (!i.read(state->prompt.data(), state->prompt.size())) {
-            LM_THROW("Failed to deserialize prompt");
+            LM_THROW("Failed to deserialize prompt", LM_BOOL_ERROR);
         }
         // Read state
         std::vector<uint8_t> state_buf(state_size);
         if (!i.read(reinterpret_cast<char*>(state_buf.data()), state_buf.size())) {
-            LM_THROW("Failed to deserialize state");
+            LM_THROW("Failed to deserialize state", LM_BOOL_ERROR);
         }
         llama_set_state_data(state->ctx, state_buf.data());
-        LM_CORETURN;
+        LM_CORETURN LM_BOOL_SUCCESS;
     }
 
     const std::string &get_prompt() const LM_NOEXCEPTDECL override {
