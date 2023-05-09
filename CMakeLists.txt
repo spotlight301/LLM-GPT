@@ -27,7 +27,7 @@ if (LM_COSCHED)
     target_compile_definitions(libjustlm PUBLIC LM_COSCHED)
     target_link_libraries(libjustlm PRIVATE cosched)
 
-    set(LM_COSCHED Yes CACHE BOOL FORCE "If Libjustlm should make use of CoSched")
+    set(LM_COSCHED Yes CACHE BOOL "If Libjustlm should make use of CoSched" FORCE)
 endif()
 
 if (LM_NOEXCEPT)
