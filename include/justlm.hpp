@@ -39,7 +39,7 @@
 #   define LM_BOOL_ERROR
 #   define LM_BOOL_SUCCESS
 #   define LM_IF_ERROR(x) if (false)
-#   define LM_ERROR_FORWARD(x) 0
+#   define LM_ERROR_FORWARD(x) {x;}
 #endif
 
 
