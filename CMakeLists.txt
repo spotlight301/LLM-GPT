@@ -8,6 +8,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(LM_PYBIND No CACHE BOOL "If Libjustlm Python bindings should be build")
 set(LM_COSCHED No CACHE BOOL "If Libjustlm should make use of CoSched")
+set(LM_NOEXCEPT No CACHE BOOL "If exceptions should be disabled")
 
 if (LM_COSCHED)
     set(CMAKE_CXX_STANDARD 20)
@@ -25,6 +26,12 @@ target_link_libraries(libjustlm PRIVATE llama)
 if (LM_COSCHED)
     target_compile_definitions(libjustlm PUBLIC LM_COSCHED)
     target_link_libraries(libjustlm PRIVATE cosched)
+
+    set(LM_COSCHED Yes CACHE BOOL FORCE "If Libjustlm should make use of CoSched")
+endif()
+
+if (LM_NOEXCEPT)
+    target_compile_definitions(libjustlm PUBLIC LM_NOEXCEPT)
 endif()
 
 if (LM_PYBIND)

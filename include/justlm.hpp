@@ -1,5 +1,6 @@
 #ifndef JUSTLM_HPP
 #define JUSTLM_HPP
+
 #ifdef LM_COSCHED
 #   include <scheduler.hpp>
 #   define LM_SCHEDULABLE(type) ::CoSched::AwaitableTask<type>
@@ -11,6 +12,18 @@
 #   define LM_CORETURN return
 #   define LM_COAWAIT
 #   define LM_TASKYIELD (true)
+#endif
+
+#ifdef LM_NOEXCEPT
+#   define LM_NOEXCEPTDECL noexcept
+#   define LM_THROW(t) this->last_error = (t); return;
+#   define LM_LAST_ERROR_STORAGE mutable std::string last_error;
+#   define LM_LAST_ERROR_GETTER const std::string& get_last_error() const {return last_error;}
+#else
+#   define LM_NOEXCEPTDECL
+#   define LM_THROW(t) throw Exception(t)
+#   define LM_LAST_ERROR_STORAGE
+#   define LM_LAST_ERROR_GETTER
 #endif
 
 #include <iostream>
@@ -29,10 +42,12 @@ protected:
     void *generic_state = nullptr;
 
     static inline
-    bool ends_with(std::string_view str, std::string_view suffix) {
+    bool ends_with(std::string_view str, std::string_view suffix) noexcept {
         if (suffix.empty()) return false;
         return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
     }
+
+    LM_LAST_ERROR_STORAGE
 
 public:
     struct Exception : public std::runtime_error {
@@ -86,25 +101,27 @@ public:
     static
     Inference *construct(const std::string& weights_path, const Params& p);
 
-    void set_scroll_callback(const std::function<bool (float)>& scroll_cb) {
+    void set_scroll_callback(const std::function<bool (float)>& scroll_cb) noexcept {
         on_scroll = scroll_cb;
     }
 
     // This must be called with a non-empty prompt!
-    virtual LM_SCHEDULABLE(void) append(const std::string& prompt, const std::function<bool (float progress)>& on_tick = nullptr) = 0;
+    virtual LM_SCHEDULABLE(void) append(const std::string& prompt, const std::function<bool (float progress)>& on_tick = nullptr) LM_NOEXCEPTDECL = 0;
 
     // append() must have been called at least once before calling this!
-    virtual LM_SCHEDULABLE(std::string) run(std::string_view end = "", const std::function<bool (const char *generated)>& on_tick = nullptr) = 0;
+    virtual LM_SCHEDULABLE(std::string) run(std::string_view end = "", const std::function<bool (const char *generated)>& on_tick = nullptr) LM_NOEXCEPTDECL = 0;
 
-    virtual unsigned get_context_size() const = 0;
+    virtual unsigned get_context_size() const LM_NOEXCEPTDECL = 0;
 
-    virtual LM_SCHEDULABLE(void) create_savestate(Savestate&) const = 0;
-    virtual LM_SCHEDULABLE(void) restore_savestate(const Savestate&) = 0;
+    virtual LM_SCHEDULABLE(void) create_savestate(Savestate&) const LM_NOEXCEPTDECL = 0;
+    virtual LM_SCHEDULABLE(void) restore_savestate(const Savestate&) LM_NOEXCEPTDECL = 0;
 
-    virtual LM_SCHEDULABLE(void) serialize(std::ostream&) const = 0;
-    virtual LM_SCHEDULABLE(void) deserialize(std::istream&) = 0;
+    virtual LM_SCHEDULABLE(void) serialize(std::ostream&) const LM_NOEXCEPTDECL = 0;
+    virtual LM_SCHEDULABLE(void) deserialize(std::istream&) LM_NOEXCEPTDECL = 0;
 
-    virtual const std::string& get_prompt() const = 0;
+    virtual const std::string& get_prompt() const LM_NOEXCEPTDECL = 0;
+
+    LM_LAST_ERROR_GETTER
 };
 }
 #endif // JUSTLM_HPP
