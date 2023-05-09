@@ -91,7 +91,12 @@ class GPTJInference final : public Inference {
             state->tokens.resize(params.n_ctx_window_top_bar);
         }
         // Evaluate tokens
+#       ifdef LM_NOEXCEPT
         LM_CORETURN LM_COAWAIT evaluate_tokens(0, on_scroll);
+#       else
+        LM_COAWAIT evaluate_tokens(0, on_scroll);
+        LM_CORETURN true;
+#       endif
     }
 
     LM_SCHEDULABLE(LM_ERRBOOL) evaluate_tokens(size_t starting_offset, const std::function<bool (float)> &on_tick = nullptr) LM_NOEXCEPTDECL {
