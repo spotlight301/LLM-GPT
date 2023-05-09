@@ -57,15 +57,6 @@ class GPTJInference final : public Inference {
             delete state;
         }
     }
-    LM_ERRBOOL reinit() LM_NOEXCEPTDECL {
-        if (!get_state()->prompt.empty()) {
-            deinit();
-            std::ifstream f(weights_path, std::ios::binary);
-            LM_ERROR_FORWARD(init(weights_path, f));
-        }
-
-        return LM_BOOL_SUCCESS;
-    }
 
     // This function reduces the size of our tokens vector according to some parameters
     // All tokens will be evaluated if scrolling was needed and true will be returned
