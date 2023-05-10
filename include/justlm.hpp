@@ -28,7 +28,6 @@
 #   define LM_ERRBOOL bool
 #   define LM_BOOL_ERROR false
 #   define LM_BOOL_SUCCESS true
-#   define LM_IF_ERROR(x) if (!x)
 #   define LM_ERROR_FORWARD(x) {auto v = x; if (!v) LM_CORETURN x;} 0
 #else
 #   define LM_NOEXCEPTDECL
@@ -38,7 +37,6 @@
 #   define LM_ERRBOOL void
 #   define LM_BOOL_ERROR
 #   define LM_BOOL_SUCCESS
-#   define LM_IF_ERROR(x) if (false)
 #   define LM_ERROR_FORWARD(x) {x;}
 #endif
 
