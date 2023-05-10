@@ -79,7 +79,7 @@ class LLaMaInference final : public Inference {
         // Evaluate tokens in batches
         unsigned it;
         for (it = starting_offset; ; it += params.n_batch) {
-            if (it + params.n_batch >= ssize_t(state->tokens.size())) break;
+            if (it + params.n_batch >= (long long)(state->tokens.size())) break;
 
             // Evaluate
             if (!llama_eval(state->ctx, state->tokens.data()+it, params.n_batch, it, params.n_threads)) {

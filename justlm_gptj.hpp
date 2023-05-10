@@ -92,7 +92,7 @@ class GPTJInference final : public Inference {
         // Evaluate tokens in batches
         unsigned it;
         for (it = starting_offset; ; it += params.n_batch) {
-            if (it + params.n_batch >= ssize_t(state->tokens.size())) break;
+            if (it + params.n_batch >= (long long)(state->tokens.size())) break;
 
             // Evaluate
             std::vector<int> batch(state->tokens.begin()+it, state->tokens.begin()+it+params.n_batch);
