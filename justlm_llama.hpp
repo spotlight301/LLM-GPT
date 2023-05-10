@@ -83,7 +83,7 @@ class LLaMaInference final : public Inference {
 
             // Evaluate
             if (!llama_eval(state->ctx, state->tokens.data()+it, params.n_batch, it, params.n_threads)) {
-                LM_THROW("Failed to evaluate tokens in batches", LM_BOOL_ERROR);
+                LM_COTHROW("Failed to evaluate tokens in batches", LM_BOOL_ERROR);
             }
 
             // Tick
@@ -100,7 +100,7 @@ class LLaMaInference final : public Inference {
         if (it < state->tokens.size()) {
             for (; it != state->tokens.size(); it++) {
                 if (!llama_eval(state->ctx, state->tokens.data()+it, 1, it, params.n_threads)) {
-                    LM_THROW("Failed to evaluate individual tokens", LM_BOOL_ERROR);
+                    LM_COTHROW("Failed to evaluate individual tokens", LM_BOOL_ERROR);
                 }
             }
         }
@@ -187,7 +187,7 @@ public:
             // Evaluate token
             //  TODO: Respect batch size
             if (!llama_eval(state->ctx, state->tokens.data()+state->tokens.size()-1, 1, state->tokens.size()-1, params.n_threads)) {
-                LM_THROW("Failed to evaluate new tokens", "");
+                LM_COTHROW("Failed to evaluate new tokens", "");
             }
 
             // Tick and yield
@@ -221,7 +221,7 @@ public:
     LM_SCHEDULABLE(LM_ERRBOOL) restore_savestate(const Savestate &sv) LM_NOEXCEPTDECL override {
         auto& state = get_state();
         if (sv.ctx != generic_state)
-            LM_THROW("Savestate does not match context", LM_BOOL_ERROR);
+            LM_COTHROW("Savestate does not match context", LM_BOOL_ERROR);
         llama_set_state_data(state->ctx, sv.buf.data());
         state->tokens = sv.tokens;
         state->prompt = sv.prompt;
@@ -235,22 +235,22 @@ public:
         // Write sizes
         for (const uint32_t s : {static_cast<size_t>(state->n_ctx), state->tokens.size(), state->prompt.size(), state_size}) {
             if (!o.write(reinterpret_cast<const char*>(&s), sizeof(s))) {
-                LM_THROW("Failed to serialize data sizes", LM_BOOL_ERROR);
+                LM_COTHROW("Failed to serialize data sizes", LM_BOOL_ERROR);
             }
         }
         // Write tokens
         if (!o.write(reinterpret_cast<const char*>(state->tokens.data()), state->tokens.size()*sizeof(int))) {
-            LM_THROW("Failed to serialize tokens", LM_BOOL_ERROR);
+            LM_COTHROW("Failed to serialize tokens", LM_BOOL_ERROR);
         }
         // Write prompt
         if (!o.write(state->prompt.data(), state->prompt.size())) {
-            LM_THROW("Failed to serialize prompt", LM_BOOL_ERROR);
+            LM_COTHROW("Failed to serialize prompt", LM_BOOL_ERROR);
         }
         // Write state
         std::vector<uint8_t> state_buf(state_size);
         llama_copy_state_data(state->ctx, state_buf.data());
         if (!o.write(reinterpret_cast<const char*>(state_buf.data()), state_size)) {
-            LM_THROW("Failed to serialize state", LM_BOOL_ERROR);
+            LM_COTHROW("Failed to serialize state", LM_BOOL_ERROR);
         }
         LM_CORETURN LM_BOOL_SUCCESS;
     }
@@ -262,26 +262,26 @@ public:
         // Read sizes
         for (uint32_t *s : {&n_ctx, &embd_size, &prompt_size, &state_size}) {
             if (!i.read(reinterpret_cast<char*>(s), sizeof(*s))) {
-                LM_THROW("Failed to deserialize data sizes", LM_BOOL_ERROR);
+                LM_COTHROW("Failed to deserialize data sizes", LM_BOOL_ERROR);
             }
         }
         if (state->n_ctx != n_ctx) {
-            LM_THROW("Context length differs (My "+std::to_string(state->n_ctx)+" vs. files "+std::to_string(n_ctx)+')', LM_BOOL_ERROR);
+            LM_COTHROW("Context length differs (My "+std::to_string(state->n_ctx)+" vs. files "+std::to_string(n_ctx)+')', LM_BOOL_ERROR);
         }
         // Read tokens
         state->tokens.resize(embd_size);
         if (!i.read(reinterpret_cast<char*>(state->tokens.data()), state->tokens.size()*sizeof(int))) {
-            LM_THROW("Failed to deserialize tokens", LM_BOOL_ERROR);
+            LM_COTHROW("Failed to deserialize tokens", LM_BOOL_ERROR);
         }
         // Read prompt
         state->prompt.resize(prompt_size);
         if (!i.read(state->prompt.data(), state->prompt.size())) {
-            LM_THROW("Failed to deserialize prompt", LM_BOOL_ERROR);
+            LM_COTHROW("Failed to deserialize prompt", LM_BOOL_ERROR);
         }
         // Read state
         std::vector<uint8_t> state_buf(state_size);
         if (!i.read(reinterpret_cast<char*>(state_buf.data()), state_buf.size())) {
-            LM_THROW("Failed to deserialize state", LM_BOOL_ERROR);
+            LM_COTHROW("Failed to deserialize state", LM_BOOL_ERROR);
         }
         llama_set_state_data(state->ctx, state_buf.data());
         LM_CORETURN LM_BOOL_SUCCESS;

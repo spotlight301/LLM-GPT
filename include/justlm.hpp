@@ -22,7 +22,8 @@
 
 #ifdef LM_NOEXCEPT
 #   define LM_NOEXCEPTDECL noexcept
-#   define LM_THROW(t, r) this->last_error = (t); LM_CORETURN r;
+#   define LM_THROW(t, r) this->last_error = (t); return r;
+#   define LM_COTHROW(t, r) this->last_error = (t); LM_CORETURN r;
 #   define LM_LAST_ERROR_STORAGE mutable std::string last_error;
 #   define LM_LAST_ERROR_GETTER const std::string& get_last_error() const {return last_error;}
 #   define LM_ERRBOOL bool

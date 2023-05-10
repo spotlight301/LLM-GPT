@@ -97,7 +97,7 @@ class GPTJInference final : public Inference {
             // Evaluate
             std::vector<int> batch(state->tokens.begin()+it, state->tokens.begin()+it+params.n_batch);
             if (!gptj_eval(state->model, params.n_threads, it, batch, state->logits, state->mem_per_token)) {
-                LM_THROW("Failed to evaluate tokens in batches", LM_BOOL_ERROR);
+                LM_COTHROW("Failed to evaluate tokens in batches", LM_BOOL_ERROR);
             }
 
             // Tick
@@ -116,7 +116,7 @@ class GPTJInference final : public Inference {
                 //TODO: This is extremely inefficient! Don't do that...
                 std::vector<int> batch(state->tokens.begin()+it, state->tokens.begin()+it+1);
                 if (!gptj_eval(state->model, params.n_threads, it, batch, state->logits, state->mem_per_token)) {
-                    LM_THROW("Failed to evaluate individual tokens", LM_BOOL_ERROR);
+                    LM_COTHROW("Failed to evaluate individual tokens", LM_BOOL_ERROR);
                 }
             }
         }
@@ -198,7 +198,7 @@ public:
             //  TODO: Respect batch size
             std::vector<int> batch(state->tokens.begin()+state->tokens.size()-1, state->tokens.begin()+state->tokens.size());
             if (!gptj_eval(state->model, params.n_threads, state->tokens.size()-1, batch, state->logits, state->mem_per_token)) {
-                LM_THROW("Failed to evaluate new tokens", "");
+                LM_COTHROW("Failed to evaluate new tokens", "");
             }
 
             // Tick
@@ -232,7 +232,7 @@ public:
     LM_SCHEDULABLE(LM_ERRBOOL) restore_savestate(const Savestate &sv) LM_NOEXCEPTDECL override {
         auto& state = get_state();
         if (sv.ctx != generic_state)
-            LM_THROW("Savestate does not match context", LM_BOOL_ERROR);
+            LM_COTHROW("Savestate does not match context", LM_BOOL_ERROR);
         gptj_set_state_data(&state->model, &state->rng, sv.buf.data());
         state->tokens = sv.tokens;
         state->prompt = sv.prompt;
@@ -246,22 +246,22 @@ public:
         // Write sizes
         for (const uint32_t s : {state->tokens.size(), state->prompt.size(), state_size}) {
             if (!o.write(reinterpret_cast<const char*>(&s), sizeof(s))) {
-                LM_THROW("Failed to serialize data sizes", LM_BOOL_ERROR);
+                LM_COTHROW("Failed to serialize data sizes", LM_BOOL_ERROR);
             }
         }
         // Write tokens
         if (!o.write(reinterpret_cast<const char*>(state->tokens.data()), state->tokens.size()*sizeof(int))) {
-            LM_THROW("Failed to serialize tokens", LM_BOOL_ERROR);
+            LM_COTHROW("Failed to serialize tokens", LM_BOOL_ERROR);
         }
         // Write prompt
         if (!o.write(state->prompt.data(), state->prompt.size())) {
-            LM_THROW("Failed to serialize prompt", LM_BOOL_ERROR);
+            LM_COTHROW("Failed to serialize prompt", LM_BOOL_ERROR);
         }
         // Write state
         std::vector<uint8_t> state_buf(state_size);
         gptj_copy_state_data(state->model, state->rng, state_buf.data());
         if (!o.write(reinterpret_cast<const char*>(state_buf.data()), state_size)) {
-            LM_THROW("Failed to serialize state", LM_BOOL_ERROR);
+            LM_COTHROW("Failed to serialize state", LM_BOOL_ERROR);
         }
         LM_CORETURN LM_BOOL_SUCCESS;
     }
@@ -273,23 +273,23 @@ public:
         // Read sizes
         for (uint32_t *s : {&embd_size, &prompt_size, &state_size}) {
             if (!i.read(reinterpret_cast<char*>(s), sizeof(*s))) {
-                LM_THROW("Failed to deserialize data sizes", LM_BOOL_ERROR);
+                LM_COTHROW("Failed to deserialize data sizes", LM_BOOL_ERROR);
             }
         }
         // Read tokens
         state->tokens.resize(embd_size);
         if (!i.read(reinterpret_cast<char*>(state->tokens.data()), state->tokens.size()*sizeof(int))) {
-            LM_THROW("Failed to deserialize tokens", LM_BOOL_ERROR);
+            LM_COTHROW("Failed to deserialize tokens", LM_BOOL_ERROR);
         }
         // Read prompt
         state->prompt.resize(prompt_size);
         if (!i.read(state->prompt.data(), state->prompt.size())) {
-            LM_THROW("Failed to deserialize prompt", LM_BOOL_ERROR);
+            LM_COTHROW("Failed to deserialize prompt", LM_BOOL_ERROR);
         }
         // Read state
         std::vector<uint8_t> state_buf(state_size);
         if (!i.read(reinterpret_cast<char*>(state_buf.data()), state_buf.size())) {
-            LM_THROW("Failed to deserialize state", LM_BOOL_ERROR);
+            LM_COTHROW("Failed to deserialize state", LM_BOOL_ERROR);
         }
         gptj_set_state_data(&state->model, &state->rng, state_buf.data());
         LM_CORETURN LM_BOOL_SUCCESS;
