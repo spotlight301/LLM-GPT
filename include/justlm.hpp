@@ -42,8 +42,17 @@
 #   define LM_ERROR_FORWARD(x) {x;}
 #endif
 
+#if _MSC_VER
+#include <BaseTsd.h>
+#endif
+
 
 namespace LM {
+using ssize_t = unsigned;
+#if _MSC_VER
+using ssize_t = SSIZE_T;
+#endif
+
 class Inference {
 protected:
     std::function<bool (float)> on_scroll = nullptr;
