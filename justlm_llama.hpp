@@ -82,7 +82,7 @@ class LLaMaInference final : public Inference {
             if (it + params.n_batch >= ssize_t(state->tokens.size())) break;
 
             // Evaluate
-            if (!llama_eval(state->ctx, state->tokens.data()+it, params.n_batch, it, params.n_threads)) {
+            if (llama_eval(state->ctx, state->tokens.data()+it, params.n_batch, it, params.n_threads)) {
                 LM_COTHROW("Failed to evaluate tokens in batches", LM_BOOL_ERROR);
             }
 
@@ -99,7 +99,7 @@ class LLaMaInference final : public Inference {
         // Evaluate remaining tokens
         if (it < state->tokens.size()) {
             for (; it != state->tokens.size(); it++) {
-                if (!llama_eval(state->ctx, state->tokens.data()+it, 1, it, params.n_threads)) {
+                if (llama_eval(state->ctx, state->tokens.data()+it, 1, it, params.n_threads)) {
                     LM_COTHROW("Failed to evaluate individual tokens", LM_BOOL_ERROR);
                 }
             }
@@ -186,7 +186,7 @@ public:
 
             // Evaluate token
             //  TODO: Respect batch size
-            if (!llama_eval(state->ctx, state->tokens.data()+state->tokens.size()-1, 1, state->tokens.size()-1, params.n_threads)) {
+            if (llama_eval(state->ctx, state->tokens.data()+state->tokens.size()-1, 1, state->tokens.size()-1, params.n_threads)) {
                 LM_COTHROW("Failed to evaluate new tokens", "");
             }
 
