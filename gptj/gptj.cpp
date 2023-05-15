@@ -1,6 +1,6 @@
 #include "gptj.hpp"
 
-#include "utils.hpp"
+#include "../g4a-common.hpp"
 
 #include <cassert>
 #include <cmath>

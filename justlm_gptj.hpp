@@ -4,7 +4,7 @@
 #include <random>
 #include <cstring>
 #include "gptj/gptj.hpp"
-#include "gptj/utils.hpp"
+#include "g4a-common.hpp"
 
 
 namespace LM {

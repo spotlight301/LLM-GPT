@@ -18,7 +18,8 @@ add_subdirectory(llama.cpp)
 add_library(libjustlm STATIC
     include/justlm.hpp justlm.cpp
     justlm_llama.hpp
-    justlm_gptj.hpp gptj/gptj.cpp gptj/gptj.hpp gptj/utils.cpp gptj/utils.hpp
+    g4a-common.cpp g4a-common.hpp
+    justlm_gptj.hpp gptj/gptj.cpp gptj/gptj.hpp
     include/justlm_pool.hpp justlm_pool.cpp
 )
 target_link_libraries(libjustlm PRIVATE llama)

@@ -5,7 +5,7 @@
 #include <map>
 #include <ggml.h>
 
-#include "utils.hpp"
+#include "../g4a-common.hpp"
 
 
 // default hparams (GPT-J 6B)
