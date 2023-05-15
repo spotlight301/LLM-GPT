@@ -33,12 +33,19 @@
 #else
 #   define LM_NOEXCEPTDECL
 #   define LM_THROW(t, r) throw Exception(t)
+#   define LM_COTHROW(t, r) throw Exception(t)
 #   define LM_LAST_ERROR_STORAGE
 #   define LM_LAST_ERROR_GETTER
 #   define LM_ERRBOOL void
 #   define LM_BOOL_ERROR
 #   define LM_BOOL_SUCCESS
 #   define LM_ERROR_FORWARD(x) {x;}
+#endif
+
+#ifdef LM_COSCHED
+#ifndef LM_NOEXCEPT
+
+#endif
 #endif
 
 #if _MSC_VER
