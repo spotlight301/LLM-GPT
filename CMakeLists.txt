@@ -19,6 +19,7 @@ add_library(libjustlm STATIC
     include/justlm.hpp justlm.cpp
     justlm_llama.hpp
     g4a-common.cpp g4a-common.hpp
+    justlm_mpt.hpp mpt/mpt.cpp mpt/mpt.hpp
     justlm_gptj.hpp gptj/gptj.cpp gptj/gptj.hpp
     include/justlm_pool.hpp justlm_pool.cpp
 )
