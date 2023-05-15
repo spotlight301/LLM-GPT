@@ -16,8 +16,10 @@
 #include <unordered_set>
 #include <ggml.h>
 
-// default hparams (GPT-J 6B)
-static const size_t MB = 1024*1024;
+constexpr inline
+unsigned long long operator ""_MB(unsigned long long bytes) {
+    return bytes*1024*1024;
+}
 
 static bool kv_cache_init(
         const struct gptj_hparams & hparams,
@@ -30,7 +32,7 @@ static bool kv_cache_init(
     const int64_t n_mem      = (int64_t)n_layer*n_ctx;
     const int64_t n_elements = n_embd*n_mem;
 
-    cache.buf.resize(2u*n_elements*ggml_type_size(wtype) + 2u*MB);
+    cache.buf.resize(2u*n_elements*ggml_type_size(wtype) + 2_MB);
 
     struct ggml_init_params params;
     params.mem_size   = cache.buf.size;
@@ -392,7 +394,7 @@ bool gptj_eval(
     const int n_vocab = hparams.n_vocab;
     const int n_rot   = hparams.n_rot;
 
-    static size_t buf_size = 1024u*MB;
+    static size_t buf_size = 1024_MB;
     if (!model.buf.addr || model.buf.size < buf_size)
         model.buf.resize(buf_size);
 

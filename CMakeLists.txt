@@ -9,21 +9,33 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(LM_PYBIND No CACHE BOOL "If Libjustlm Python bindings should be build")
 set(LM_COSCHED No CACHE BOOL "If Libjustlm should make use of CoSched")
 set(LM_NOEXCEPT No CACHE BOOL "If exceptions should be disabled")
+set(LM_MPT No CACHE BOOL "If MPT model support should be built")
 
 if (LM_COSCHED)
     set(CMAKE_CXX_STANDARD 20)
 endif()
 
-add_subdirectory(llama.cpp)
+if (LM_MPT)
+    set(LM_MPT_SOURCES justlm_mpt.hpp mpt/mpt.cpp mpt/mpt.hpp)
+    add_subdirectory(llama.cpp-alibi)
+else()
+    set(LM_MPT_SOURCES )
+    add_subdirectory(llama.cpp)
+endif()
+
 add_library(libjustlm STATIC
     include/justlm.hpp justlm.cpp
     justlm_llama.hpp
     g4a-common.cpp g4a-common.hpp
-    justlm_mpt.hpp mpt/mpt.cpp mpt/mpt.hpp
     justlm_gptj.hpp gptj/gptj.cpp gptj/gptj.hpp
+    ${LM_MPT_SOURCES}
     include/justlm_pool.hpp justlm_pool.cpp
 )
 target_link_libraries(libjustlm PRIVATE llama)
+
+if (LM_MPT)
+    target_compile_definitions(libjustlm PUBLIC LM_MPT)
+endif()
 
 if (LM_COSCHED)
     target_compile_definitions(libjustlm PUBLIC LM_COSCHED)

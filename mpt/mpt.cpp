@@ -17,7 +17,10 @@
 #include <regex>
 #include <ggml.h>
 
-static const size_t MB = 1024*1024;
+inline
+unsigned long long operator ""_MB(unsigned long long bytes) {
+    return bytes*1024*1024;
+}
 
 static bool kv_cache_init(
         const struct mpt_hparams & hparams,
@@ -30,7 +33,7 @@ static bool kv_cache_init(
     const int64_t n_mem      = (int64_t)n_layer*n_ctx;
     const int64_t n_elements = n_embd*n_mem;
 
-    cache.buf.resize(2u*n_elements*ggml_type_size(wtype) + 2u*MB);
+    cache.buf.resize(2u*n_elements*ggml_type_size(wtype) + 2_MB);
 
     struct ggml_init_params params;
     params.mem_size   = cache.buf.size;
@@ -202,7 +205,6 @@ bool mpt_model_load(const std::string &fname, std::istream &fin, mpt_model & mod
 
         const int n_embd  = hparams.n_embd;
         const int n_layer = hparams.n_layer;
-        const int n_ctx   = hparams.n_ctx;
         const int n_vocab = hparams.n_vocab;
         const int expand  = hparams.expand;
 
@@ -240,13 +242,6 @@ bool mpt_model_load(const std::string &fname, std::istream &fin, mpt_model & mod
     // key + value memory
     {
         const auto & hparams = model.hparams;
-
-        const int n_embd  = hparams.n_embd;
-        const int n_layer = hparams.n_layer;
-        const int n_ctx   = hparams.n_ctx;
-
-        const int n_mem      = n_layer*n_ctx;
-        const int n_elements = n_embd*n_mem;
 
         if (!kv_cache_init(hparams, model.kv_self, GGML_TYPE_F16, model.hparams.n_ctx)) {
             fprintf(stderr, "%s: kv_cache_init() failed for self-attention cache\n", __func__);
@@ -350,37 +345,6 @@ bool mpt_model_load(const std::string & fname, mpt_model & model, mpt_vocab & vo
     return loaded;
 }
 
-struct ggml_tensor * ggml_alibi(
-    struct ggml_context * ctx,
-    struct ggml_tensor  * a,
-    int                   n_past,
-    int                   n_head) {
-    if (n_past < 0) {
-        return NULL;
-    }
-    bool is_node = false;
-
-    if (a->grad) {
-        return NULL; // TODO: implement backward
-        is_node = true;
-    }
-
-    // TODO: when implement backward, fix this:
-    //struct ggml_tensor * result = inplace ? ggml_view_tensor(ctx, a) : ggml_dup_tensor(ctx, a);
-    struct ggml_tensor * result = ggml_view_tensor(ctx, a);
-
-    struct ggml_tensor * b = ggml_new_tensor_1d(ctx, GGML_TYPE_I32, 3);
-    ((int32_t *) b->data)[0] = n_past;
-    ((int32_t *) b->data)[1] = n_head;
-
-    result->op   = GGML_OP_COUNT; // Dirty hack
-    result->grad = is_node ? ggml_dup_tensor(ctx, result) : NULL;
-    result->src0 = a;
-    result->src1 = b;
-
-    return result;
-}
-
 bool mpt_eval(
         mpt_model & model,
         const int n_threads,
@@ -397,9 +361,6 @@ bool mpt_eval(
     const int n_ctx   = hparams.n_ctx;
     const int n_head  = hparams.n_head;
     const int n_vocab = hparams.n_vocab;
-    const int expand  = hparams.expand;
-
-    const int d_key = n_embd/n_head;
 
     static size_t buf_size = 256u*1024*1024;
     static void * buf = malloc(buf_size);
@@ -560,11 +521,9 @@ bool mpt_eval(
         out = ggml_mul_mat(ctx0, model.wte, out);
     }
 
-
     // run the computation
     ggml_build_forward_expand(&gf, out);
     ggml_graph_compute       (ctx0, &gf);
-
 
     // return result for just the last token
     embd_w.resize(n_vocab);
@@ -728,8 +687,6 @@ size_t mpt_copy_state_data(const mpt_model &model, const std::mt19937 &rng, uint
     }
 
     const size_t written  = out - dest;
-    const size_t expected = mpt_get_state_size(model);
-    assert(written == expected);
     fflush(stdout);
     return written;
 }
@@ -876,8 +833,6 @@ size_t mpt_set_state_data(mpt_model *model, std::mt19937 *rng, const uint8_t *sr
     }
 
     const size_t nread    = in - src;
-    const size_t expected = mpt_get_state_size(*model);
-    assert(nread == expected);
     fflush(stdout);
     return nread;
 }
