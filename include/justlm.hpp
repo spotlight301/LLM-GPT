@@ -44,7 +44,7 @@
 
 #ifdef LM_COSCHED
 #ifndef LM_NOEXCEPT
-
+#warning Exceptions shouldn't be enabled in combination with CoSched. Any exceptions thrown will lead to a std::terminate() call
 #endif
 #endif
 
