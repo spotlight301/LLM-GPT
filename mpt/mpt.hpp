@@ -1,5 +1,7 @@
 #ifndef MPT_H
 #define MPT_H
+#include "../g4a-common.hpp"
+
 #include <string>
 #include <vector>
 #include <map>
@@ -99,24 +101,10 @@ struct mpt_model {
     }
 };
 
-struct mpt_vocab {
-    using id    = int32_t;
-    using token = std::string;
 
-    std::map<token, id> token_to_id;
-    std::map<id, token> id_to_token;
-    std::vector<std::string> special_tokens;
-
-    void add_special_token(const std::string &token) {
-        special_tokens.push_back(token);
-    }
-};
-
-
-bool mpt_model_load(const std::string &fname, std::istream &fin, mpt_model & model, mpt_vocab & vocab);
+bool mpt_model_load(const std::string &fname, std::istream &fin, mpt_model & model, gpt_vocab& vocab);
 bool mpt_eval(mpt_model& model, const int n_threads, const int n_past, const std::vector<int>& embd_inp, std::vector<float>& embd_w, size_t& mem_per_token);
-std::vector<mpt_vocab::id> mpt_tokenize(const mpt_vocab & vocab, const std::string & text);
-mpt_vocab::id mpt_sample_top_k_top_p(const size_t actualVocabSize, const int32_t *last_n_tokens_data, int last_n_tokens_size, const std::vector<float> logits, int top_k, double top_p, double temp, float repeat_penalty, std::mt19937& rng);
+gpt_vocab::id mpt_sample_top_k_top_p(const size_t actualVocabSize, const int32_t *last_n_tokens_data, int last_n_tokens_size, const std::vector<float> logits, int top_k, double top_p, double temp, float repeat_penalty, std::mt19937& rng);
 size_t mpt_get_state_size(const mpt_model &model);
 size_t mpt_copy_state_data(const mpt_model &model, const std::mt19937& rng, uint8_t *dest);
 size_t mpt_set_state_data(mpt_model *model, std::mt19937 *rng, const uint8_t *src);

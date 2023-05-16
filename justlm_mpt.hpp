@@ -12,7 +12,7 @@ class MPTInference final : public Inference {
     std::string weights_path;
 
     struct State {
-        mpt_vocab vocab;
+        gpt_vocab vocab;
         mpt_model model;
         std::string prompt; // Mostly here for easy "debugging"
         std::vector<int> tokens;
@@ -148,7 +148,7 @@ public:
         const auto old_token_count = state->tokens.size();
 
         // Run tokenizer
-        const auto tokens = mpt_tokenize(state->vocab, prompt);
+        const auto tokens = gpt_tokenize(state->vocab, prompt);
         state->tokens.insert(
                     state->tokens.end(),
                     std::make_move_iterator(tokens.begin()),
@@ -181,7 +181,7 @@ public:
                     abort = true;
                     continue;
                 }
-                id = mpt_tokenize(state->vocab, "\n")[0];
+                id = gpt_tokenize(state->vocab, "\n")[0];
                 state->tokens.push_back(id);
             } else {
                 // Add token
