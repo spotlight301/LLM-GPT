@@ -1,4 +1,4 @@
-#include "justlm_llama.hpp"
+#include "justlm_mpt.hpp"
 #include "justlm.hpp"
 
 #include <string>
@@ -10,16 +10,15 @@
 
 extern "C" {
 const LM::Implementation *get_justlm_implementation() {
-    static LM::Implementation fres{true};
+    static LM::Implementation fres{false};
     return &fres;
 }
 
 bool magic_match(uint32_t magic) {
-    return magic == 0x67676d6c;
+    return magic == 0x67676d6d;
 }
 
 LM::Inference *construct(const std::string &weights_path, std::ifstream& f, const LM::Inference::Params &p) {
-    f.close();
-    return new LM::LLaMaInference(weights_path, p);
+    return new LM::MPTInference(weights_path, f, p);
 }
 }

@@ -9,7 +9,7 @@ namespace py = pybind11;
 
 
 
-PYBIND11_MODULE(libjustlm_py, m) {
+PYBIND11_MODULE(justlm_py, m) {
     using namespace LM;
     py::class_<Inference::Params>(m, "Params")
         .def(py::init<>())

@@ -1,5 +1,5 @@
 [submodule "llama.cpp"]
-	path = llama.cpp
+	path = llama.cpp-mainline
 	url = https://github.com/ggerganov/llama.cpp.git
 [submodule "llama.cpp-alibi"]
 	path = llama.cpp-alibi

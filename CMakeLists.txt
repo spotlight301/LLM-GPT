@@ -1,52 +1,76 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.18)
 
-project(libjustlm LANGUAGES C CXX)
+project(justlm LANGUAGES C CXX)
+
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-set(LM_PYBIND No CACHE BOOL "If Libjustlm Python bindings should be build")
-set(LM_COSCHED No CACHE BOOL "If Libjustlm should make use of CoSched")
-set(LM_NOEXCEPT No CACHE BOOL "If exceptions should be disabled")
-set(LM_MPT No CACHE BOOL "If MPT model support should be built")
+set(LM_PYBIND No CACHE BOOL "If justlm Python bindings should be build")
+set(LM_COSCHED No CACHE BOOL "If justlm should make use of CoSched")
+set(LM_NOEXCEPT No CACHE BOOL "If justlm exceptions should be disabled")
+set(LM_LLAMA Yes CACHE BOOL "If LLaMa model support should be built into justlm")
+set(LM_GPTJ Yes CACHE BOOL "If GPT-J model support should be built into justlm")
+set(LM_MPT Yes CACHE BOOL "If MPT model support should be built into justlm")
 
 if (LM_COSCHED)
     set(CMAKE_CXX_STANDARD 20)
 endif()
 
+
+function(target_justlm_setup target)
+    target_include_directories(${target} PUBLIC include/)
+    if (LM_COSCHED)
+        target_compile_definitions(${target} PUBLIC LM_COSCHED)
+        target_link_libraries(${target} PRIVATE cosched)
+    endif()
+    if (LM_NOEXCEPT)
+        target_compile_definitions(${target} PUBLIC LM_NOEXCEPT)
+    endif()
+endfunction()
+
+
+include(llama.cpp.cmake)
+
+include_ggml(llama.cpp-mainline _mainline Yes)
+include_ggml(llama.cpp-alibi _alibi No)
+
+
+add_library(justlm_g4a_common SHARED g4a-common.cpp g4a-common.hpp)
+
+
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
 if (LM_MPT)
-    set(LM_MPT_SOURCES justlm_mpt.hpp mpt/mpt.cpp mpt/mpt.hpp)
-    add_subdirectory(llama.cpp-alibi)
-else()
-    set(LM_MPT_SOURCES )
-    add_subdirectory(llama.cpp)
+    add_library(justlm_mpt SHARED mpt.cpp justlm_mpt.hpp mpt/mpt.cpp mpt/mpt.hpp)
+    target_link_libraries(justlm_mpt PRIVATE ggml_alibi justlm_g4a_common)
+    target_justlm_setup(justlm_mpt)
 endif()
 
-add_library(libjustlm STATIC
+if (LM_GPTJ)
+    add_library(justlm_gptj SHARED gptj.cpp justlm_gptj.hpp gptj/gptj.cpp gptj/gptj.hpp)
+    target_link_libraries(justlm_gptj PRIVATE ggml_mainline justlm_g4a_common)
+    target_justlm_setup(justlm_gptj)
+endif()
+
+if (LM_LLAMA)
+    add_library(justlm_llama SHARED llama.cpp justlm_llama.hpp)
+    target_link_libraries(justlm_llama PRIVATE ggml_mainline llama_mainline)
+    target_justlm_setup(justlm_llama)
+endif()
+
+
+add_library(justlm STATIC
     include/justlm.hpp justlm.cpp
-    justlm_llama.hpp
-    g4a-common.cpp g4a-common.hpp
-    justlm_gptj.hpp gptj/gptj.cpp gptj/gptj.hpp
-    ${LM_MPT_SOURCES}
     include/justlm_pool.hpp justlm_pool.cpp
+    dlhandle.hpp
 )
-target_link_libraries(libjustlm PRIVATE llama)
-
-if (LM_MPT)
-    target_compile_definitions(libjustlm PUBLIC LM_MPT)
-endif()
-
-if (LM_COSCHED)
-    target_compile_definitions(libjustlm PUBLIC LM_COSCHED)
-    target_link_libraries(libjustlm PRIVATE cosched)
-
-    set(LM_COSCHED Yes CACHE BOOL "If Libjustlm should make use of CoSched" FORCE)
-endif()
-
-if (LM_NOEXCEPT)
-    target_compile_definitions(libjustlm PUBLIC LM_NOEXCEPT)
-endif()
+add_library(libjustlm ALIAS justlm)
+target_link_libraries(justlm PRIVATE dl)
+target_include_directories(justlm PUBLIC include/)
+target_compile_definitions(justlm PRIVATE LIB_FILE_EXT="${CMAKE_SHARED_LIBRARY_SUFFIX}")
+target_justlm_setup(justlm)
 
 if (LM_PYBIND)
     if (LM_COSCHED)
@@ -55,8 +79,6 @@ if (LM_PYBIND)
 
     find_package(Python COMPONENTS Interpreter Development)
     find_package(pybind11 CONFIG)
-    pybind11_add_module(libjustlm_py pybind.cpp)
-    target_link_libraries(libjustlm_py PRIVATE libjustlm)
+    pybind11_add_module(justlm_py pybind.cpp)
+    target_link_libraries(justlm_py PRIVATE justlm)
 endif()
-
-target_include_directories(libjustlm PUBLIC include/)

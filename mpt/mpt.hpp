@@ -83,10 +83,16 @@ struct mpt_model {
     struct ggml_context * ctx;
     std::map<std::string, struct ggml_tensor *> tensors;
 
+    size_t eval_buf_size = 256u*1024*1024;
+    void *eval_buf;
 
     mpt_buffer buf;
 
+    mpt_model() {
+        eval_buf = malloc(eval_buf_size);
+    }
     ~mpt_model() {
+        free(eval_buf);
         if (ctx) {
             ggml_free(ctx);
         }
@@ -110,7 +116,7 @@ struct mpt_vocab {
 bool mpt_model_load(const std::string &fname, std::istream &fin, mpt_model & model, mpt_vocab & vocab);
 bool mpt_eval(mpt_model& model, const int n_threads, const int n_past, const std::vector<int>& embd_inp, std::vector<float>& embd_w, size_t& mem_per_token);
 std::vector<mpt_vocab::id> mpt_tokenize(const mpt_vocab & vocab, const std::string & text);
-mpt_vocab::id mpt_sample_top_k_top_p(const mpt_vocab& vocab, const size_t actualVocabSize, const int32_t *last_n_tokens_data, int last_n_tokens_size, const std::vector<float> logits, int top_k, double top_p, double temp, float repeat_penalty, std::mt19937& rng);
+mpt_vocab::id mpt_sample_top_k_top_p(const size_t actualVocabSize, const int32_t *last_n_tokens_data, int last_n_tokens_size, const std::vector<float> logits, int top_k, double top_p, double temp, float repeat_penalty, std::mt19937& rng);
 size_t mpt_get_state_size(const mpt_model &model);
 size_t mpt_copy_state_data(const mpt_model &model, const std::mt19937& rng, uint8_t *dest);
 size_t mpt_set_state_data(mpt_model *model, std::mt19937 *rng, const uint8_t *src);
