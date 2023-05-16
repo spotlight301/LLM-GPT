@@ -80,7 +80,7 @@ public:
     struct Params {
         int seed = 0; // RNG seed
         unsigned n_threads = 0;
-        unsigned n_ctx = 2012; // Context size
+        unsigned n_ctx = 2024; // Context size
         unsigned n_ctx_window_top_bar = 0; // Top bar of context window. Must be smaller than context size
         unsigned n_batch = 8; // Batch size
         unsigned n_repeat_last = 0; // llama.cpp specific

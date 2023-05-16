@@ -19,6 +19,7 @@ class MPTInference final : public Inference {
         std::vector<float> logits;
         size_t mem_per_token = 0;
         std::mt19937 rng;
+        bool has_im_end;
 
         State(int32_t seed) : rng(seed) {}
     };
@@ -46,6 +47,9 @@ class MPTInference final : public Inference {
         static std::vector<gpt_vocab::id> p_instruct;
         static std::vector<gpt_vocab::id> r_instruct;
         mpt_eval(state->model, params.n_threads, 0, { 0, 1, 2, 3 }, state->logits, state->mem_per_token);
+
+        // Some other stuff
+        state->has_im_end = state->vocab.token_to_id.find("<|im_end|>") != state->vocab.token_to_id.end();
 
         return LM_BOOL_SUCCESS;
     }
@@ -172,7 +176,7 @@ public:
             // Sample top p and top k
             auto id = mpt_sample_top_k_top_p(state->model.hparams.n_vocab, state->tokens.data(), state->tokens.size(), state->logits, params.top_k, params.top_p, params.temp, params.repeat_penalty, state->rng);
 
-            if (id == state->vocab.token_to_id["<|im_end|>"]) {
+            if (id == 0 || (state->has_im_end && id == state->vocab.token_to_id["<|im_end|>"])) {
                 if (eos_count++ == params.eos_ignores) {
                     abort = true;
                     continue;
