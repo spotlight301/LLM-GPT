@@ -85,16 +85,9 @@ struct mpt_model {
     struct ggml_context * ctx;
     std::map<std::string, struct ggml_tensor *> tensors;
 
-    size_t eval_buf_size = 256u*1024*1024;
-    void *eval_buf;
-
     mpt_buffer buf;
 
-    mpt_model() {
-        eval_buf = malloc(eval_buf_size);
-    }
     ~mpt_model() {
-        free(eval_buf);
         if (ctx) {
             ggml_free(ctx);
         }
