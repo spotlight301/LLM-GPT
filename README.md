@@ -1,8 +1,8 @@
 # JustLM
-Super easy to use library for doing LLaMA/GPT-J stuff!
+Super easy to use library for doing LLaMA/GPT-J/MPT stuff!
 
 ## Overview
-This library implements an easy to use interface to both LLaMa and GPT-J, with optional Python bindings.
+This library implements an easy to use interface to LLaMa, GPT-J and MPT, with optional Python bindings.
 
 Context scrolling is automatic and supports a top window bar.
 

@@ -53,7 +53,6 @@ class MPTInference final : public Inference {
         auto& state = get_state();
 
         if (state) {
-            if (state->model.ctx) ggml_free(state->model.ctx); //TODO: Is that enough?
             delete state;
         }
     }
@@ -162,19 +161,6 @@ public:
         LM_CORETURN LM_COAWAIT evaluate_tokens(old_token_count, on_tick);
     }
 
-    /*mpt_vocab::id mpt_sample_top_k_top_p(
-        const mpt_vocab & vocab,
-        const size_t actualVocabSize,
-        const int32_t * last_n_tokens_data,
-        int   last_n_tokens_size,
-        const std::vector<float> logits,
-        int    top_k,
-        double top_p,
-        double temp,
-        float repeat_penalty,
-        std::mt19937 & rng)
-*/
-
     LM_SCHEDULABLE(std::string) run(std::string_view end, const std::function<bool (const char *)> &on_tick = nullptr) LM_NOEXCEPTDECL override {
         auto& state = get_state();
         std::string fres;
@@ -184,7 +170,7 @@ public:
         unsigned eos_count = 0;
         while (!abort && !ends_with(fres, end)) {
             // Sample top p and top k
-            auto id = mpt_sample_top_k_top_p(state->vocab, state->model.hparams.n_vocab, state->tokens.data(), state->tokens.size(), state->logits, params.top_k, params.top_p, params.temp, params.repeat_penalty, state->rng);
+            auto id = mpt_sample_top_k_top_p(state->model.hparams.n_vocab, state->tokens.data(), state->tokens.size(), state->logits, params.top_k, params.top_p, params.temp, params.repeat_penalty, state->rng);
 
             if (id == state->vocab.token_to_id["<|im_end|>"]) {
                 if (eos_count++ == params.eos_ignores) {
@@ -206,6 +192,7 @@ public:
 
             // Append string to function result
             fres.append(str);
+            state->prompt.append(str);
 
             // Evaluate token
             //  TODO: Respect batch size
@@ -220,7 +207,6 @@ public:
         }
 
         // Create final string  TODO: Could be optimized
-        state->prompt.append(fres);
         if (!abort) {
             fres = std::string(fres.data(), fres.size()-end.size());
         }

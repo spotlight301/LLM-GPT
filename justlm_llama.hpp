@@ -11,7 +11,7 @@ class LLaMaInference final : public Inference {
         llama_context *ctx = nullptr;
         std::string prompt; // Mostly here for easy "debugging"
         std::vector<int> tokens;
-        int n_ctx;
+        unsigned n_ctx;
     };
 
     State*& get_state() {
@@ -91,8 +91,8 @@ class LLaMaInference final : public Inference {
                 // Calculate progress
                 auto progress = float(it-starting_offset) / (state->tokens.size()-starting_offset) * 100.f;
                 // Tick and yield
-                if (!on_tick(progress)) LM_BOOL_SUCCESS;
-                else if (!LM_TASKYIELD) LM_BOOL_SUCCESS;
+                if (!on_tick(progress)) LM_CORETURN LM_BOOL_SUCCESS;
+                else if (!LM_TASKYIELD) LM_CORETURN LM_BOOL_SUCCESS;
             }
         }
 
@@ -182,6 +182,7 @@ public:
             const auto str = llama_token_to_str(state->ctx, id);
 
             // Append string to function result
+            state->prompt.append(str);
             fres.append(str);
 
             // Evaluate token
@@ -196,7 +197,6 @@ public:
         }
 
         // Create final string  TODO: Could be optimized
-        state->prompt.append(fres);
         if (!abort) {
             fres = std::string(fres.data(), fres.size()-end.size());
         }

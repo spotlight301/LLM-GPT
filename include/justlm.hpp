@@ -146,5 +146,10 @@ public:
 
     LM_LAST_ERROR_GETTER
 };
+
+
+struct Implementation {
+    bool is_fallback = false;
+};
 }
 #endif // JUSTLM_HPP

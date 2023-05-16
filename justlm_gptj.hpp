@@ -53,7 +53,6 @@ class GPTJInference final : public Inference {
         auto& state = get_state();
 
         if (state) {
-            if (state->model.ctx) ggml_free(state->model.ctx); //TODO: Is that enough?
             delete state;
         }
     }
@@ -192,6 +191,7 @@ public:
             const auto str = state->vocab.id_to_token[id];
 
             // Append string to function result
+            state->prompt.append(str);
             fres.append(str);
 
             // Evaluate token
@@ -207,7 +207,6 @@ public:
         }
 
         // Create final string  TODO: Could be optimized
-        state->prompt.append(fres);
         if (!abort) {
             fres = std::string(fres.data(), fres.size()-end.size());
         }

@@ -1,4 +1,4 @@
-#include "justlm_llama.hpp"
+#include "justlm_gptj.hpp"
 #include "justlm.hpp"
 
 #include <string>
@@ -10,7 +10,7 @@
 
 extern "C" {
 const LM::Implementation *get_justlm_implementation() {
-    static LM::Implementation fres{true};
+    static LM::Implementation fres{false};
     return &fres;
 }
 
@@ -19,7 +19,6 @@ bool magic_match(uint32_t magic) {
 }
 
 LM::Inference *construct(const std::string &weights_path, std::ifstream& f, const LM::Inference::Params &p) {
-    f.close();
-    return new LM::LLaMaInference(weights_path, p);
+    return new LM::GPTJInference(weights_path, f, p);
 }
 }

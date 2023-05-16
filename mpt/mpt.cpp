@@ -187,9 +187,9 @@ bool mpt_model_load(const std::string &fname, std::istream &fin, mpt_model & mod
     // create the ggml context
     {
         struct ggml_init_params params = {
-            .mem_size   = ctx_size,
-            .mem_buffer = NULL,
-            .no_alloc   = false,
+            ctx_size,
+            NULL,
+            false,
         };
 
         model.ctx = ggml_init(params);
@@ -362,30 +362,29 @@ bool mpt_eval(
     const int n_head  = hparams.n_head;
     const int n_vocab = hparams.n_vocab;
 
-    static size_t buf_size = 256u*1024*1024;
-    static void * buf = malloc(buf_size);
 
-    if (mem_per_token > 0 && mem_per_token*N > buf_size) {
+    if (mem_per_token > 0 && mem_per_token*N > model.eval_buf_size) {
         const size_t buf_size_new = 1.1*(mem_per_token*N); // add 10% to account for ggml object overhead
         //printf("\n%s: reallocating buffer from %zu to %zu bytes\n", __func__, buf_size, buf_size_new);
 
         // reallocate
-        buf_size = buf_size_new;
-        buf = realloc(buf, buf_size);
-        if (buf == nullptr) {
-            fprintf(stderr, "%s: failed to allocate %zu bytes\n", __func__, buf_size);
+        model.eval_buf_size = buf_size_new;
+        model.eval_buf = realloc(model.eval_buf, model.eval_buf_size);
+        if (model.eval_buf == nullptr) {
+            fprintf(stderr, "%s: failed to allocate %zu bytes\n", __func__, model.eval_buf_size);
             return false;
         }
     }
 
     struct ggml_init_params params = {
-        .mem_size   = buf_size,
-        .mem_buffer = buf,
-        .no_alloc   = false,
+        model.eval_buf_size,
+        model.eval_buf,
+        false
     };
 
     struct ggml_context * ctx0 = ggml_init(params);
-    struct ggml_cgraph gf = { .n_threads = n_threads };
+    struct ggml_cgraph gf;
+    gf.n_threads = n_threads;
 
     struct ggml_tensor * embd = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, N);
     memcpy(embd->data, embd_inp.data(), N*ggml_element_size(embd));
@@ -692,7 +691,6 @@ size_t mpt_copy_state_data(const mpt_model &model, const std::mt19937 &rng, uint
 }
 
 mpt_vocab::id mpt_sample_top_k_top_p(
-        const mpt_vocab & vocab,
         const size_t actualVocabSize,
         const int32_t * last_n_tokens_data,
         int   last_n_tokens_size,
