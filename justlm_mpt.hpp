@@ -175,7 +175,7 @@ public:
         while (!abort && !ends_with(fres, end)) {
             // Sample top p and top k
             const auto n_repeat_last = std::min<size_t>(state->tokens.size(), params.n_repeat_last);
-            auto id = mpt_sample_top_k_top_p(state->model.hparams.n_vocab, state->tokens.data()+state->tokens.size()-n_repeat_last, n_repeat_last, state->logits, params.top_k, params.top_p, params.temp, params.repeat_penalty, state->rng);
+            auto id = gpt_sample_top_k_top_p(state->model.hparams.n_vocab, state->tokens.data()+state->tokens.size()-n_repeat_last, n_repeat_last, state->logits, params.top_k, params.top_p, params.temp, params.repeat_penalty, state->rng);
 
             if (id == 0 || (state->has_im_end && id == state->vocab.token_to_id["<|im_end|>"])) {
                 if (eos_count++ == params.eos_ignores) {
