@@ -179,17 +179,16 @@ public:
                     continue;
                 }
                 id = gpt_tokenize(state->vocab, "\n")[0];
-                state->tokens.push_back(id);
-            } else {
-                // Add token
-                state->tokens.push_back(id);
             }
+
+            // Add token
+            state->tokens.push_back(id);
 
             // Make sure token limit isn't being hit
             LM_COAWAIT window_scroll();
 
             // Get token as string
-            const auto str = state->vocab.id_to_token[id];
+            const std::string_view str = state->vocab.id_to_token[id];
 
             // Append string to function result
             state->prompt.append(str);
@@ -203,7 +202,7 @@ public:
             }
 
             // Tick
-            if (on_tick && !on_tick(str.c_str())) abort = true;
+            if (on_tick && !on_tick(str.data())) abort = true;
             else if (!LM_TASKYIELD) abort = true;
         }
 

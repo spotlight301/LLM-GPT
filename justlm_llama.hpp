@@ -180,7 +180,7 @@ public:
             LM_COAWAIT window_scroll();
 
             // Get token as string
-            const auto str = llama_token_to_str(state->ctx, id);
+            const std::string_view str = llama_token_to_str(state->ctx, id);
 
             // Append string to function result
             state->prompt.append(str);
@@ -193,7 +193,7 @@ public:
             }
 
             // Tick and yield
-            if (on_tick && !on_tick(str)) abort = true;
+            if (on_tick && !on_tick(str.data())) abort = true;
             else if (!LM_TASKYIELD) abort = true;
         }
 
