@@ -335,7 +335,7 @@ function(include_ggml DIRECTORY SUFFIX WITH_LLAMA)
                     ${DIRECTORY}/llama.h
                     ${DIRECTORY}/llama_util.h)
 
-        target_include_directories(llama${SUFFIX} PUBLIC .)
+        target_include_directories(llama${SUFFIX} PUBLIC ${DIRECTORY})
         target_compile_features(llama${SUFFIX} PUBLIC cxx_std_11) # don't bump
         target_link_libraries(llama${SUFFIX} PRIVATE ggml${SUFFIX} ${LLAMA_EXTRA_LIBS})
 
