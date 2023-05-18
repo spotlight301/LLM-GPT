@@ -14,10 +14,6 @@ const LM::Implementation *get_justlm_implementation() {
     return &fres;
 }
 
-bool magic_match(uint32_t magic) {
-    return magic == 0x67676d6c;
-}
-
 LM::Inference *construct(const std::string &weights_path, std::ifstream& f, const LM::Inference::Params &p) {
     f.close();
     return new LM::LLaMaInference(weights_path, p);
