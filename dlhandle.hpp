@@ -1,30 +1,27 @@
+#ifndef DLHANDLE_H
+#define DLHANDLE_H
 #ifndef __WIN32
 #include <string>
-#include <exception>
+#include <stdexcept>
 #include <utility>
 #include <dlfcn.h>
+
 
 
 class Dlhandle {
     void *chandle;
 
 public:
-    class Exception : public std::exception {
-        std::string errmsg;
+    class Exception : public std::runtime_error {
     public:
-        Exception(std::string errmsg) {
-            this->errmsg = errmsg;
-        }
-        virtual const char* what() const throw() {
-            return errmsg.c_str();
-        }
+        using std::runtime_error::runtime_error;
     };
 
     Dlhandle() : chandle(nullptr) {}
     Dlhandle(const std::string& fpath, int flags = RTLD_LAZY) {
         chandle = dlopen(fpath.c_str(), flags);
         if (!chandle) {
-            throw Exception("dlopen(): "+fpath);
+            throw Exception("dlopen(\""+fpath+"\"): "+dlerror());
         }
     }
     Dlhandle(const Dlhandle& o) = delete;
@@ -48,7 +45,6 @@ public:
 
     template<typename T>
     T* get(const std::string& fname) {
-        dlerror(); // Clear error
         auto fres = reinterpret_cast<T*>(dlsym(chandle, fname.c_str()));
         return (dlerror()==NULL)?fres:nullptr;
     }
@@ -67,22 +63,16 @@ class Dlhandle {
     HMODULE chandle;
 
 public:
-    class Exception : public std::exception {
-        std::string errmsg;
+    class Exception : public std::runtime_error {
     public:
-        Exception(std::string errmsg) {
-            this->errmsg = errmsg;
-        }
-        virtual const char* what() const throw() {
-            return errmsg.c_str();
-        }
+        using std::runtime_error::runtime_error;
     };
 
     Dlhandle() : chandle(nullptr) {}
     Dlhandle(const std::string& fpath) {
         chandle = LoadLibraryA(fpath.c_str());
         if (!chandle) {
-            throw Exception("dlopen(): "+fpath);
+            throw Exception("dlopen(\""+fpath+"\"): Error");
         }
     }
     Dlhandle(const Dlhandle& o) = delete;
@@ -106,3 +96,4 @@ public:
     }
 };
 #endif
+#endif // DLHANDLE_H
