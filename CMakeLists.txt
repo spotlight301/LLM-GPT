@@ -6,6 +6,7 @@ project(justlm LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 set(LM_PYBIND No CACHE BOOL "If justlm Python bindings should be build")
 set(LM_COSCHED No CACHE BOOL "If justlm should make use of CoSched")
@@ -39,8 +40,6 @@ include_ggml(llama.cpp-alibi _alibi No)
 
 add_library(justlm_g4a_common SHARED g4a-common.cpp g4a-common.hpp)
 
-
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 if (LM_MPT)
     add_library(justlm_mpt SHARED mpt.cpp justlm_mpt.hpp mpt/mpt.cpp mpt/mpt.hpp)
