@@ -111,6 +111,29 @@ class LLaMAInference final : public Inference {
         LM_CORETURN LM_BOOL_SUCCESS;
     }
 
+    int llama_sample_top_p_top_k() {
+        auto& state = get_state();
+        auto logits = llama_get_logits(state->ctx);
+        auto n_vocab = llama_n_vocab(state->ctx);
+        // Populate initial list of all candidates
+        std::vector<llama_token_data> candidates;
+        candidates.reserve(n_vocab);
+        for (int token_id = 0; token_id < n_vocab; token_id++) {
+            candidates.emplace_back(llama_token_data{token_id, logits[token_id], 0.0f});
+        }
+        llama_token_data_array candidates_p = {candidates.data(), candidates.size(), false};
+        // Sample repeat penalty
+        auto n_repeat_last = std::min<size_t>(state->tokens.size(), params.n_repeat_last);
+        llama_sample_repetition_penalty(nullptr, &candidates_p, params.n_repeat_last?(state->tokens.data()+state->tokens.size()-n_repeat_last):nullptr, n_repeat_last, params.repeat_penalty);
+        // Temperature sampling
+        llama_sample_top_k(state->ctx, &candidates_p, params.top_k, 1);
+        llama_sample_tail_free(state->ctx, &candidates_p, 1.0f, 1);
+        llama_sample_typical(state->ctx, &candidates_p, 1.0f, 1);
+        llama_sample_top_p(state->ctx, &candidates_p, params.top_p, 1);
+        llama_sample_temperature(state->ctx, &candidates_p, params.temp);
+        return llama_sample_token(state->ctx, &candidates_p);
+    }
+
 public:
     LLaMAInference(const std::string& weights_path, const Params& p) : Inference(p) {
         init(weights_path);

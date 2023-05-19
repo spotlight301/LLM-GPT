@@ -56,16 +56,16 @@ if (LM_GPTJ)
     target_justlm_setup(justlm_gptj)
 endif()
 
-if (LM_LLAMA_OLD)
-    add_library(justlm_llama_old SHARED llama_old.cpp justlm_llama_old.hpp)
-    target_link_libraries(justlm_llama_old PRIVATE ggml_old llama_old)
-    target_justlm_setup(justlm_llama_old)
-endif()
-
 if (LM_LLAMA)
     add_library(justlm_llama SHARED llama.cpp justlm_llama.hpp)
     target_link_libraries(justlm_llama PRIVATE ggml_mainline llama_mainline)
     target_justlm_setup(justlm_llama)
+endif()
+
+if (LM_LLAMA_OLD)
+    add_library(justlm_llama_old SHARED llama_old.cpp justlm_llama_old.hpp)
+    target_link_libraries(justlm_llama_old PRIVATE ggml_old llama_old)
+    target_justlm_setup(justlm_llama_old)
 endif()
 
 
