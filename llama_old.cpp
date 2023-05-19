@@ -20,6 +20,6 @@ bool magic_match(uint32_t magic) {
 
 LM::Inference *construct(const std::string &weights_path, std::ifstream& f, const LM::Inference::Params &p) {
     f.close();
-    return new LM::LLaMaInference(weights_path, p);
+    return new LM::LLaMAInference(weights_path, p);
 }
 }
