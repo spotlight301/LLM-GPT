@@ -1,4 +1,4 @@
-#include "g4a-common.hpp"
+#include "g4a_common.hpp"
 
 #include <fstream>
 #include <regex>

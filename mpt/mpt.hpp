@@ -1,6 +1,6 @@
 #ifndef MPT_H
 #define MPT_H
-#include "../g4a-common.hpp"
+#include "../g4a_common.hpp"
 
 #include <string>
 #include <vector>

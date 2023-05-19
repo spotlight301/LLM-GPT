@@ -1,5 +1,5 @@
 #include "mpt.hpp"
-#include "../g4a-common.hpp"
+#include "../g4a_common.hpp"
 
 #include <cassert>
 #include <cmath>

@@ -12,6 +12,7 @@ set(LM_PYBIND No CACHE BOOL "If justlm Python bindings should be build")
 set(LM_COSCHED No CACHE BOOL "If justlm should make use of CoSched")
 set(LM_NOEXCEPT No CACHE BOOL "If justlm exceptions should be disabled")
 set(LM_LLAMA Yes CACHE BOOL "If LLaMa model support should be built into justlm")
+set(LM_LLAMA_OLD Yes CACHE BOOL "If old LLaMa model support should be built into justlm")
 set(LM_GPTJ Yes CACHE BOOL "If GPT-J model support should be built into justlm")
 set(LM_MPT Yes CACHE BOOL "If MPT model support should be built into justlm")
 
@@ -35,11 +36,11 @@ endfunction()
 
 include(llama.cpp.cmake)
 
-include_ggml(llama.cpp-mainline _mainline Yes)
+include_ggml(llama.cpp-old _old Yes)
 include_ggml(llama.cpp-alibi _alibi No)
 
 
-add_library(justlm_g4a_common SHARED g4a-common.cpp g4a-common.hpp)
+add_library(justlm_g4a_common SHARED g4a_common.cpp g4a_common.hpp)
 
 
 if (LM_MPT)
@@ -50,14 +51,14 @@ endif()
 
 if (LM_GPTJ)
     add_library(justlm_gptj SHARED gptj.cpp justlm_gptj.hpp gptj/gptj.cpp gptj/gptj.hpp)
-    target_link_libraries(justlm_gptj PRIVATE ggml_mainline justlm_g4a_common)
+    target_link_libraries(justlm_gptj PRIVATE ggml_old justlm_g4a_common)
     target_justlm_setup(justlm_gptj)
 endif()
 
-if (LM_LLAMA)
-    add_library(justlm_llama SHARED llama.cpp justlm_llama.hpp)
-    target_link_libraries(justlm_llama PRIVATE ggml_mainline llama_mainline)
-    target_justlm_setup(justlm_llama)
+if (LM_LLAMA_OLD)
+    add_library(justlm_llama_old SHARED llama_old.cpp justlm_llama_old.hpp)
+    target_link_libraries(justlm_llama_old PRIVATE ggml_old llama_old)
+    target_justlm_setup(justlm_llama_old)
 endif()
 
 
