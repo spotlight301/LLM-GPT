@@ -14,7 +14,9 @@ const LM::Implementation *get_justlm_implementation() {
     return &fres;
 }
 
-bool magic_match(uint32_t magic) {
+bool magic_match(std::istream& f) {
+    uint32_t magic;
+    f.read(reinterpret_cast<char*>(&magic), sizeof(magic));
     return magic == 0x67676d6c;
 }
 

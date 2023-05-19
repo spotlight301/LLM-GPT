@@ -9,7 +9,7 @@
 
 
 static
-Dlhandle get_implementation(uint32_t magic) {
+Dlhandle get_implementation(std::ifstream& input_f) {
     Dlhandle matching;
     Dlhandle fallback;
     // Iterate over all libraries
@@ -32,8 +32,9 @@ Dlhandle get_implementation(uint32_t magic) {
                 continue;
             }
             // Set if matching magic
-            auto magic_match = dl.get<bool(uint32_t)>("magic_match");
-            if (magic_match && magic_match(magic)) {
+            input_f.seekg(0);
+            auto magic_match = dl.get<bool(std::ifstream&)>("magic_match");
+            if (magic_match && magic_match(input_f)) {
                 matching = std::move(dl);
                 continue;
             }
@@ -48,13 +49,11 @@ LM::Inference *LM::Inference::construct(const std::string &weights_path, const P
     static std::vector<Dlhandle> dls;
     // Read magic
     std::ifstream f(weights_path, std::ios::binary);
-    uint32_t magic;
-    if (!f.read(reinterpret_cast<char*>(&magic), sizeof(magic))) {
+    if (!f) {
         throw Exception("Failed to open weights file for reading at "+weights_path);
     }
-    f.seekg(0);
     // Get correct implementation
-    auto impl = get_implementation(magic);
+    auto impl = get_implementation(f);
     if (!impl) return nullptr;
     // Get inference constructor
     auto constructor = impl.get<LM::Inference *(const std::string &, std::ifstream&, const LM::Inference::Params &)>("construct");
@@ -62,5 +61,6 @@ LM::Inference *LM::Inference::construct(const std::string &weights_path, const P
     // Back up Dlhandle
     dls.push_back(std::move(impl));
     // Construct inference
+    f.seekg(0);
     return constructor(weights_path, f, p);
 }

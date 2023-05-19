@@ -10,8 +10,19 @@
 
 extern "C" {
 const LM::Implementation *get_justlm_implementation() {
-    static LM::Implementation fres{true};
+    static LM::Implementation fres{false};
     return &fres;
+}
+
+bool magic_match(std::istream& f) {
+    // Check magic
+    uint32_t magic;
+    f.read(reinterpret_cast<char*>(&magic), sizeof(magic));
+    if (magic != 0x67676a74) return false;
+    // Check version
+    uint32_t version = 0;
+    f.read(reinterpret_cast<char*>(&version), sizeof(version));
+    return version >= 2;
 }
 
 LM::Inference *construct(const std::string &weights_path, std::ifstream& f, const LM::Inference::Params &p) {
