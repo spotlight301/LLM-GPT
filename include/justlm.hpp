@@ -64,12 +64,6 @@ protected:
 
     void *generic_state = nullptr;
 
-    static inline
-    bool ends_with(std::string_view str, std::string_view suffix) noexcept {
-        if (suffix.empty()) return false;
-        return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
-    }
-
     LM_LAST_ERROR_STORAGE
 
 public:

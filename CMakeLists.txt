@@ -38,6 +38,7 @@ include(llama.cpp.cmake)
 
 include_ggml(llama.cpp-mainline _mainline Yes)
 include_ggml(llama.cpp-old _old Yes)
+include_ggml(llama.cpp-old2 _old2 Yes)
 include_ggml(llama.cpp-alibi _alibi No)
 
 
@@ -57,7 +58,7 @@ if (LM_GPTJ)
 endif()
 
 if (LM_LLAMA)
-    add_library(justlm_llama SHARED llama.cpp justlm_llama.hpp)
+    add_library(justlm_llama SHARED llama_mainline.cpp justlm_llama.hpp)
     target_link_libraries(justlm_llama PRIVATE ggml_mainline llama_mainline)
     target_justlm_setup(justlm_llama)
 endif()
@@ -66,6 +67,10 @@ if (LM_LLAMA_OLD)
     add_library(justlm_llama_old SHARED llama_old.cpp justlm_llama_old.hpp)
     target_link_libraries(justlm_llama_old PRIVATE ggml_old llama_old)
     target_justlm_setup(justlm_llama_old)
+
+    add_library(justlm_llama_old2 SHARED llama_old2.cpp justlm_llama.hpp)
+    target_link_libraries(justlm_llama_old2 PRIVATE ggml_old2 llama_old2)
+    target_justlm_setup(justlm_llama_old2)
 endif()
 
 

@@ -22,7 +22,7 @@ bool magic_match(std::istream& f) {
     // Check version
     uint32_t version = 0;
     f.read(reinterpret_cast<char*>(&version), sizeof(version));
-    return version >= 2;
+    return version >= 3;
 }
 
 LM::Inference *construct(const std::string &weights_path, std::ifstream& f, const LM::Inference::Params &p) {
