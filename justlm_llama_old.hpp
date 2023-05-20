@@ -158,7 +158,7 @@ public:
         // Loop until done
         bool abort = false;
         unsigned eos_count = 0;
-        while (!abort && fres.size() >= end.size() && fres.find(end) != fres.npos) {
+        while (!abort && (end.empty() || fres.find(end) == fres.npos)) {
             // Sample top p and top k
             const auto n_repeat_last = std::min<size_t>(state->tokens.size(), params.n_repeat_last);
             auto id = llama_sample_top_p_top_k(state->ctx, params.n_repeat_last?(state->tokens.data()+state->tokens.size()-n_repeat_last):nullptr, n_repeat_last, params.top_k, params.top_p, params.temp, params.repeat_penalty);

@@ -181,7 +181,7 @@ public:
         // Loop until done
         bool abort = false;
         unsigned eos_count = 0;
-        while (!abort && fres.size() >= end.size() && fres.find(end) != fres.npos) {
+        while (!abort && (end.empty() || fres.find(end) == fres.npos)) {
             // Sample top p and top k
             auto id = llama_sample_top_p_top_k();
 
@@ -220,7 +220,7 @@ public:
         }
 
         // Create final string  TODO: Could be optimized
-        if (!abort) {
+        if (!abort && fres.size() > end.size()) {
             fres = std::string(fres.data(), fres.size()-end.size());
         }
 
