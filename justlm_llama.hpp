@@ -181,7 +181,7 @@ public:
         // Loop until done
         bool abort = false;
         unsigned eos_count = 0;
-        while (!abort && fres.find(end) != fres.npos) {
+        while (!abort && fres.size() >= end.size() && fres.find(end) != fres.npos) {
             // Sample top p and top k
             auto id = llama_sample_top_p_top_k();
 
