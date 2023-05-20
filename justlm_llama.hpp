@@ -111,6 +111,7 @@ class LLaMAInference final : public Inference {
         LM_CORETURN LM_BOOL_SUCCESS;
     }
 
+#if LLAMA_DATE >= 230519
     int llama_sample_top_p_top_k() {
         auto& state = get_state();
         auto logits = llama_get_logits(state->ctx);
@@ -133,6 +134,13 @@ class LLaMAInference final : public Inference {
         llama_sample_temperature(state->ctx, &candidates_p, params.temp);
         return llama_sample_token(state->ctx, &candidates_p);
     }
+#else
+    int llama_sample_top_p_top_k() {
+        auto& state = get_state();
+        auto n_repeat_last = std::min<size_t>(state->tokens.size(), params.n_repeat_last);
+        return ::llama_sample_top_p_top_k(state->ctx, params.n_repeat_last?(state->tokens.data()+state->tokens.size()-n_repeat_last):nullptr, n_repeat_last, params.top_k, params.top_p, params.temp, params.repeat_penalty);
+    }
+#endif
 
 public:
     LLaMAInference(const std::string& weights_path, const Params& p) : Inference(p) {
@@ -245,7 +253,7 @@ public:
         auto& state = get_state();
         if (sv.ctx != generic_state)
             LM_COTHROW("Savestate does not match context", LM_BOOL_ERROR);
-        llama_set_state_data(state->ctx, sv.buf.data());
+        llama_set_state_data(state->ctx, const_cast<uint8_t*>(sv.buf.data()));
         state->tokens = sv.tokens;
         state->prompt = sv.prompt;
         LM_CORETURN LM_BOOL_SUCCESS;

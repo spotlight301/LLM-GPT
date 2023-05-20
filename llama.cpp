@@ -16,13 +16,13 @@ const LM::Implementation *get_justlm_implementation() {
 
 bool magic_match(std::istream& f) {
     // Check magic
-    uint32_t magic;
+    uint32_t magic = 0;
     f.read(reinterpret_cast<char*>(&magic), sizeof(magic));
     if (magic != 0x67676a74) return false;
     // Check version
     uint32_t version = 0;
     f.read(reinterpret_cast<char*>(&version), sizeof(version));
-    return version >= 3;
+    return version LLAMA_VERSIONS;
 }
 
 LM::Inference *construct(const std::string &weights_path, std::ifstream& f, const LM::Inference::Params &p) {

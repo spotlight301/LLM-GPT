@@ -37,8 +37,8 @@ endfunction()
 include(llama.cpp.cmake)
 
 include_ggml(llama.cpp-mainline _mainline Yes)
-include_ggml(llama.cpp-old _old Yes)
-include_ggml(llama.cpp-old2 _old2 Yes)
+include_ggml(llama.cpp-230511 _230511 Yes)
+include_ggml(llama.cpp-230519 _230519 Yes)
 include_ggml(llama.cpp-alibi _alibi No)
 
 
@@ -53,24 +53,30 @@ endif()
 
 if (LM_GPTJ)
     add_library(justlm_gptj SHARED gptj.cpp justlm_gptj.hpp gptj/gptj.cpp gptj/gptj.hpp)
-    target_link_libraries(justlm_gptj PRIVATE ggml_old justlm_g4a_common)
+    target_link_libraries(justlm_gptj PRIVATE ggml_230511 justlm_g4a_common)
     target_justlm_setup(justlm_gptj)
 endif()
 
 if (LM_LLAMA)
-    add_library(justlm_llama SHARED llama_mainline.cpp justlm_llama.hpp)
+    add_library(justlm_llama SHARED llama.cpp justlm_llama.hpp)
     target_link_libraries(justlm_llama PRIVATE ggml_mainline llama_mainline)
+    target_compile_definitions(justlm_llama PRIVATE
+        LLAMA_VERSIONS=>=3 LLAMA_DATE=999999)
     target_justlm_setup(justlm_llama)
 endif()
 
 if (LM_LLAMA_OLD)
-    add_library(justlm_llama_old SHARED llama_old.cpp justlm_llama_old.hpp)
-    target_link_libraries(justlm_llama_old PRIVATE ggml_old llama_old)
-    target_justlm_setup(justlm_llama_old)
+    add_library(justLM_LLAMA_OLD SHARED llama.cpp justlm_llama.hpp)
+    target_link_libraries(justLM_LLAMA_OLD PRIVATE ggml_230511 llama_230511)
+    target_compile_definitions(justLM_LLAMA_OLD PRIVATE
+        LLAMA_VERSIONS=<=1 LLAMA_DATE=230511)
+    target_justlm_setup(justLM_LLAMA_OLD)
 
-    add_library(justlm_llama_old2 SHARED llama_old2.cpp justlm_llama.hpp)
-    target_link_libraries(justlm_llama_old2 PRIVATE ggml_old2 llama_old2)
-    target_justlm_setup(justlm_llama_old2)
+    add_library(justlm_llama_230519 SHARED llama.cpp justlm_llama.hpp)
+    target_link_libraries(justlm_llama_230519 PRIVATE ggml_230519 llama_230519)
+    target_compile_definitions(justlm_llama_230519 PRIVATE
+        LLAMA_VERSIONS===2 LLAMA_DATE=230519)
+    target_justlm_setup(justlm_llama_230519)
 endif()
 
 
