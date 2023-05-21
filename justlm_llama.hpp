@@ -125,7 +125,7 @@ class LLaMAInference final : public Inference {
         llama_token_data_array candidates_p = {candidates.data(), candidates.size(), false};
         // Sample repeat penalty
         auto n_repeat_last = std::min<size_t>(state->tokens.size(), params.n_repeat_last);
-        llama_sample_repetition_penalty(nullptr, &candidates_p, params.n_repeat_last?(state->tokens.data()+state->tokens.size()-n_repeat_last):nullptr, n_repeat_last, params.repeat_penalty);
+        llama_sample_repetition_penalty(state->ctx, &candidates_p, params.n_repeat_last?(state->tokens.data()+state->tokens.size()-n_repeat_last):nullptr, n_repeat_last, params.repeat_penalty);
         // Temperature sampling
         llama_sample_top_k(state->ctx, &candidates_p, params.top_k, 1);
         llama_sample_tail_free(state->ctx, &candidates_p, 1.0f, 1);
