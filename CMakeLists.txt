@@ -66,11 +66,11 @@ if (LM_LLAMA)
 endif()
 
 if (LM_LLAMA_OLD)
-    add_library(justlm_llama_old SHARED llama.cpp justlm_llama.hpp)
-    target_link_libraries(justlm_llama_old PRIVATE ggml_230511 llama_230511)
-    target_compile_definitions(justlm_llama_old PRIVATE
+    add_library(justlm_llama_230511 SHARED llama.cpp justlm_llama.hpp)
+    target_link_libraries(justlm_llama_230511 PRIVATE ggml_230511 llama_230511)
+    target_compile_definitions(justlm_llama_230511 PRIVATE
         LLAMA_VERSIONS=<=1 LLAMA_DATE=230511)
-    target_justlm_setup(justlm_llama_old)
+    target_justlm_setup(justlm_llama_230511)
 
     add_library(justlm_llama_230519 SHARED llama.cpp justlm_llama.hpp)
     target_link_libraries(justlm_llama_230519 PRIVATE ggml_230519 llama_230519)
