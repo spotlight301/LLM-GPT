@@ -77,17 +77,20 @@ public:
         unsigned n_ctx = 2024; // Context size
         unsigned n_ctx_window_top_bar = 0; // Top bar of context window. Must be smaller than context size
         unsigned n_batch = 8; // Batch size
-        unsigned n_repeat_last = 0; // llama.cpp specific
+        unsigned n_repeat_last = 0;
+        unsigned n_eos_ignores = 0;
 
         float scroll_keep = 0.0f; // 0.4f to keep 40% of context below top bar when scrolling; 0.0f to remove everything after top bar
 
         unsigned top_k = 40;
-        float   top_p = 0.9f;
-        float   temp  = 0.72f;
-        float repeat_penalty = 1.0f; // llama.cpp specific
-        unsigned eos_ignores = 0; // llama.cpp specific
+        float top_p = 0.9f;
+        float temp = 0.72f;
+        float mirostat_learning_rate = 0.1f; // mirostat specific
+        float mirostat_target_entropy = 5.0f; // mirostat specific
+        float repeat_penalty = 1.0f;
 
-        bool use_mlock = true; // llama.cpp specific
+        bool use_mlock = true; // llama specific
+        int prefer_mirostat = 0; // Use given mirostat version if available (see is_mirostat_available()); llama specific
     } params;
 
     struct Savestate {
@@ -137,6 +140,8 @@ public:
     virtual LM_SCHEDULABLE(LM_ERRBOOL) deserialize(std::istream&) LM_NOEXCEPTDECL = 0;
 
     virtual const std::string& get_prompt() const LM_NOEXCEPTDECL = 0;
+
+    virtual bool is_mirostat_available() const noexcept {return false;}
 
     LM_LAST_ERROR_GETTER
 };

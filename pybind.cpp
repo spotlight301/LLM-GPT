@@ -24,8 +24,11 @@ PYBIND11_MODULE(justlm_py, m) {
         .def_readwrite("top_p", &Inference::Params::top_p)
         .def_readwrite("temp", &Inference::Params::temp)
         .def_readwrite("repeat_penalty", &Inference::Params::repeat_penalty)
-        .def_readwrite("eos_ignores", &Inference::Params::eos_ignores)
-        .def_readwrite("use_mlock", &Inference::Params::use_mlock);
+        .def_readwrite("eos_ignores", &Inference::Params::n_eos_ignores)
+        .def_readwrite("use_mlock", &Inference::Params::use_mlock)
+        .def_readwrite("prefer_mirostat", &Inference::Params::prefer_mirostat)
+        .def_readwrite("mirostat_learning_rate", &Inference::Params::mirostat_learning_rate)
+        .def_readwrite("mirostat_target_entropy", &Inference::Params::mirostat_target_entropy);
     py::class_<Inference>(m, "Inference")
         .def_static("construct", &Inference::construct, py::arg("weights_path"), py::arg("params") = Inference::Params())
         .def("append", &Inference::append, py::arg("prompt"), py::arg("on_tick") = nullptr)
@@ -34,6 +37,7 @@ PYBIND11_MODULE(justlm_py, m) {
         .def("restore_savestate", &Inference::restore_savestate)
         .def("get_prompt", &Inference::get_prompt)
         .def("get_context_size", &Inference::get_context_size)
+        .def("is_mirostat_available", &Inference::is_mirostat_available)
         .def_readwrite("params", &Inference::params);
     py::class_<Inference::Savestate>(m, "Savestate")
         .def(py::init<>());

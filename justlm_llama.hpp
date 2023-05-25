@@ -127,12 +127,28 @@ class LLaMAInference final : public Inference {
         auto n_repeat_last = std::min<size_t>(state->tokens.size(), params.n_repeat_last);
         llama_sample_repetition_penalty(state->ctx, &candidates_p, params.n_repeat_last?(state->tokens.data()+state->tokens.size()-n_repeat_last):nullptr, n_repeat_last, params.repeat_penalty);
         // Temperature sampling
-        llama_sample_top_k(state->ctx, &candidates_p, params.top_k, 1);
-        llama_sample_tail_free(state->ctx, &candidates_p, 1.0f, 1);
-        llama_sample_typical(state->ctx, &candidates_p, 1.0f, 1);
-        llama_sample_top_p(state->ctx, &candidates_p, params.top_p, 1);
-        llama_sample_temperature(state->ctx, &candidates_p, params.temp);
-        return llama_sample_token(state->ctx, &candidates_p);
+        switch (params.prefer_mirostat) {
+        case 0: {
+            llama_sample_top_k(state->ctx, &candidates_p, params.top_k, 1);
+            llama_sample_tail_free(state->ctx, &candidates_p, 1.0f, 1);
+            llama_sample_typical(state->ctx, &candidates_p, 1.0f, 1);
+            llama_sample_top_p(state->ctx, &candidates_p, params.top_p, 1);
+            llama_sample_temperature(state->ctx, &candidates_p, params.temp);
+            return llama_sample_token(state->ctx, &candidates_p);
+        }
+        case 1: {
+            float mirostat_mu = 2.0f * params.mirostat_target_entropy;
+            const int mirostat_m = 100;
+            llama_sample_temperature(state->ctx, &candidates_p, params.temp);
+            return llama_sample_token_mirostat(state->ctx, &candidates_p, params.mirostat_target_entropy, params.mirostat_learning_rate, mirostat_m, &mirostat_mu);
+        }
+        case 2: {
+            float mirostat_mu = 2.0f * params.mirostat_target_entropy;
+            llama_sample_temperature(state->ctx, &candidates_p, params.temp);
+            return llama_sample_token_mirostat_v2(state->ctx, &candidates_p, params.mirostat_target_entropy, params.mirostat_learning_rate, &mirostat_mu);
+        }
+        default: LM_THROW("Invalid mirostat version "+std::to_string(params.prefer_mirostat), LM_BOOL_ERROR);
+        }
     }
 #else
     int llama_sample_top_p_top_k() {
@@ -191,10 +207,15 @@ public:
         unsigned eos_count = 0;
         while (!abort && (end.empty() || fres.find(end) == fres.npos)) {
             // Sample top p and top k
-            auto id = llama_sample_top_p_top_k();
+            int id;
+            try {
+                id = llama_sample_top_p_top_k();
+            } catch (const std::exception& e) {
+                LM_COTHROW(e.what(), "");
+            }
 
             if (id == llama_token_eos()) {
-                if (eos_count++ == params.eos_ignores) {
+                if (eos_count++ == params.n_eos_ignores) {
                     abort = true;
                     continue;
                 }
@@ -321,5 +342,11 @@ public:
     const std::string &get_prompt() const LM_NOEXCEPTDECL override {
         return get_state()->prompt;
     }
+
+#if LLAMA_DATE >= 230519
+    bool is_mirostat_available() const noexcept override {
+        return true;
+    }
+#endif
 };
 }

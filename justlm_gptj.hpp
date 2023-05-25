@@ -174,7 +174,7 @@ public:
             auto id = gpt_sample_top_k_top_p(state->model.hparams.n_vocab, state->tokens.data()+state->tokens.size()-n_repeat_last, n_repeat_last, state->logits, params.top_k, params.top_p, params.temp, params.repeat_penalty, state->rng);
 
             if (id == 50256) {
-                if (eos_count++ == params.eos_ignores) {
+                if (eos_count++ == params.n_eos_ignores) {
                     abort = true;
                     continue;
                 }
