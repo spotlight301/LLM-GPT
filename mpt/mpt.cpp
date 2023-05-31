@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 #include <iostream>
-#include <unistd.h>
+#include "../msvc_compat_unistd.h"
 #include <sstream>
 #include <thread>
 #include <unordered_set>
