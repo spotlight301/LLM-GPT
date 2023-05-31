@@ -17,7 +17,7 @@
 #include <ggml.h>
 
 constexpr inline
-unsigned long long operator ""_MB(unsigned long long bytes) {
+unsigned long long operator ""_MiB(unsigned long long bytes) {
     return bytes*1024*1024;
 }
 
