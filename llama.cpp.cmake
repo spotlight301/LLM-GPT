@@ -339,8 +339,7 @@ function(include_ggml DIRECTORY SUFFIX WITH_LLAMA)
             ${DIRECTORY}/llama.h
             ${DIRECTORY}/${LLAMA_UTIL_SOURCE_FILE})
         remove_nonexistent(LLAMA_SOURCES)
-        add_library(llama${SUFFIX}
-                    )
+        add_library(llama${SUFFIX} ${LLAMA_SOURCES})
 
         if (LLAMA_METAL AND GGML_METAL_SOURCES)
             target_compile_definitions(llama${SUFFIX} PUBLIC GGML_USE_METAL GGML_METAL_NDEBUG)
