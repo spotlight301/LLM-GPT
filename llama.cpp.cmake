@@ -212,6 +212,17 @@ if (NOT MSVC)
     endif()
 endif()
 
+function(remove_nonexistent SOURCES)
+    set(SOURCES_BAK ${${SOURCES}})
+    set(${SOURCES} )
+    foreach (FILE ${SOURCES_BAK})
+        if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${FILE})
+            set(${SOURCES} ${${SOURCES}} ${FILE})
+        endif()
+    endforeach()
+    set(${SOURCES} ${${SOURCES}} PARENT_SCOPE)
+endfunction()
+
 function(include_ggml DIRECTORY SUFFIX WITH_LLAMA)
     message(STATUS "Configuring ggml implementation target llama${SUFFIX} in ${CMAKE_CURRENT_SOURCE_DIR}/${DIRECTORY}")
 
@@ -292,13 +303,15 @@ function(include_ggml DIRECTORY SUFFIX WITH_LLAMA)
         endif()
     endif()
 
-    add_library(ggml${SUFFIX} OBJECT
-                ${DIRECTORY}/ggml.c
-                ${DIRECTORY}/ggml.h
-                ${GGML_SOURCES_QUANT_K}
-                ${GGML_SOURCES_CUDA}
-                ${GGML_METAL_SOURCES}
-                ${GGML_OPENCL_SOURCES})
+    set(GGML_SOURCES
+        ${DIRECTORY}/ggml.c
+        ${DIRECTORY}/ggml.h
+        ${GGML_SOURCES_QUANT_K}
+        ${GGML_SOURCES_CUDA}
+        ${GGML_METAL_SOURCES}
+        ${GGML_OPENCL_SOURCES})
+    remove_nonexistent(GGML_SOURCES)
+    add_library(ggml${SUFFIX} OBJECT ${GGML_SOURCES})
 
     if (LLAMA_K_QUANTS)
         target_compile_definitions(ggml${SUFFIX} PUBLIC GGML_USE_K_QUANTS)
@@ -321,10 +334,13 @@ function(include_ggml DIRECTORY SUFFIX WITH_LLAMA)
             set(LLAMA_UTIL_SOURCE_FILE llama_util.h)
         endif()
 
+        SET(LLAMA_SOURCES
+            ${DIRECTORY}/llama.cpp
+            ${DIRECTORY}/llama.h
+            ${DIRECTORY}/${LLAMA_UTIL_SOURCE_FILE})
+        remove_nonexistent(LLAMA_SOURCES)
         add_library(llama${SUFFIX}
-                    ${DIRECTORY}/llama.cpp
-                    ${DIRECTORY}/llama.h
-                    ${DIRECTORY}/${LLAMA_UTIL_SOURCE_FILE})
+                    )
 
         if (LLAMA_METAL AND GGML_METAL_SOURCES)
             target_compile_definitions(llama${SUFFIX} PUBLIC GGML_USE_METAL GGML_METAL_NDEBUG)
