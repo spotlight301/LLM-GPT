@@ -93,6 +93,7 @@ public:
         float mirostat_target_entropy = 5.0f; // mirostat specific
         float repeat_penalty = 1.0f;
 
+        unsigned n_gpu_layers = 38;
         bool use_mlock = true; // llama specific
         int prefer_mirostat = 0; // Use given mirostat version if available (see is_mirostat_available()); llama specific
     } params;

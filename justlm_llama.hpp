@@ -32,6 +32,9 @@ class LLaMAInference final : public Inference {
         lparams.seed = params.seed;
         lparams.n_ctx = params.n_ctx = params.n_ctx>0?params.n_ctx:2024;
         lparams.use_mlock = params.use_mlock;
+#if LLAMA_DATE >= 230519
+        lparams.n_gpu_layers = params.n_gpu_layers;
+#endif
 
         // Create context
         state->ctx = llama_init_from_file(weights_path.c_str(), lparams);
