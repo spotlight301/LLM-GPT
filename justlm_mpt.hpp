@@ -90,7 +90,7 @@ class MPTInference final : public Inference {
             state->tokens.resize(params.n_ctx_window_top_bar);
         }
         // Evaluate tokens
-        LM_ERROR_FORWARD(LM_COAWAIT evaluate_tokens(0, on_scroll));
+        LM_ERROR_FORWARD(LM_COAWAIT evaluate_tokens(0, on_scroll), LM_BOOL_ERROR);
         LM_CORETURN true;
     }
 

@@ -29,7 +29,9 @@
 #   define LM_ERRBOOL bool
 #   define LM_BOOL_ERROR false
 #   define LM_BOOL_SUCCESS true
-#   define LM_ERROR_FORWARD(x) {auto v = x; if (!v) LM_CORETURN x;} 0
+#   define LM_RETHROW(x) LM_CORETURN x;
+#   define LM_ERROR_CATCH(x, errval, ...) {auto v = x; if (v == (errval)) __VA_ARGS__}
+#   define LM_ERROR_FORWARD(x, errval) {auto v = x; if (v == (errval)) LM_CORETURN x;} 0
 #else
 #   define LM_NOEXCEPTDECL
 #   define LM_THROW(t, r) throw Exception(t)
@@ -39,7 +41,9 @@
 #   define LM_ERRBOOL void
 #   define LM_BOOL_ERROR
 #   define LM_BOOL_SUCCESS
-#   define LM_ERROR_FORWARD(x) {x;}
+#   define LM_RETHROW(x) std::rethrow_exception(std::current_exception())
+#   define LM_ERROR_CATCH(x, errval, ...) try {x;} catch (...) __VA_ARGS__
+#   define LM_ERROR_FORWARD(x, errval) {x;}
 #endif
 
 #ifdef LM_COSCHED
