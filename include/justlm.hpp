@@ -62,9 +62,12 @@ namespace LM {
 using ssize_t = SSIZE_T;
 #endif
 
+using GenerateCallback = std::function<bool (const char *generated)>;
+using AppendCallback = std::function<bool (float progress)>;
+
 class Inference {
 protected:
-    std::function<bool (float)> on_scroll = nullptr;
+    AppendCallback on_scroll = nullptr;
 
     void *generic_state = nullptr;
 
@@ -126,15 +129,15 @@ public:
     static
     Inference *construct(const std::string& weights_path, const Params& p);
 
-    void set_scroll_callback(const std::function<bool (float)>& scroll_cb) noexcept {
+    void set_scroll_callback(const AppendCallback& scroll_cb) noexcept {
         on_scroll = scroll_cb;
     }
 
     // This must be called with a non-empty prompt!
-    virtual LM_SCHEDULABLE(LM_ERRBOOL) append(const std::string& prompt, const std::function<bool (float progress)>& on_tick = nullptr) LM_NOEXCEPTDECL = 0;
+    virtual LM_SCHEDULABLE(LM_ERRBOOL) append(const std::string& prompt, const AppendCallback& on_tick = nullptr) LM_NOEXCEPTDECL = 0;
 
     // append() must have been called at least once before calling this!
-    virtual LM_SCHEDULABLE(std::string) run(std::string_view end = "", const std::function<bool (const char *generated)>& on_tick = nullptr) LM_NOEXCEPTDECL = 0;
+    virtual LM_SCHEDULABLE(std::string) run(std::string_view end = "", const GenerateCallback& on_tick = nullptr, const GenerateCallback& pre_tick = nullptr) LM_NOEXCEPTDECL = 0;
 
     virtual unsigned get_context_size() const noexcept = 0;
 

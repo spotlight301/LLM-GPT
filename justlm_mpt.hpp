@@ -94,7 +94,7 @@ class MPTInference final : public Inference {
         LM_CORETURN true;
     }
 
-    LM_SCHEDULABLE(LM_ERRBOOL) evaluate_tokens(size_t starting_offset, const std::function<bool (float)> &on_tick = nullptr) LM_NOEXCEPTDECL {
+    LM_SCHEDULABLE(LM_ERRBOOL) evaluate_tokens(size_t starting_offset, const AppendCallback &on_tick) LM_NOEXCEPTDECL {
         auto& state = get_state();
 
         // Evaluate tokens in batches
@@ -143,7 +143,7 @@ public:
         deinit();
     }
 
-    LM_SCHEDULABLE(LM_ERRBOOL) append(const std::string& prompt, const std::function<bool (float)> &on_tick = nullptr) LM_NOEXCEPTDECL override {
+    LM_SCHEDULABLE(LM_ERRBOOL) append(const std::string& prompt, const AppendCallback &on_tick) LM_NOEXCEPTDECL override {
         auto& state = get_state();
 
         // Append to current prompt
@@ -170,7 +170,7 @@ public:
         LM_CORETURN LM_COAWAIT evaluate_tokens(old_token_count, on_tick);
     }
 
-    LM_SCHEDULABLE(std::string) run(std::string_view end, const std::function<bool (const char *)> &on_tick = nullptr) LM_NOEXCEPTDECL override {
+    LM_SCHEDULABLE(std::string) run(std::string_view end, const GenerateCallback &on_tick, const GenerateCallback& pre_tick) LM_NOEXCEPTDECL override {
         auto& state = get_state();
         std::string fres;
 
@@ -209,11 +209,15 @@ public:
             fres.append(str);
             state->prompt.append(str);
 
-            // Evaluate token
-            //  TODO: Respect batch size
-            std::vector<int> batch(state->tokens.begin()+state->tokens.size()-1, state->tokens.begin()+state->tokens.size());
-            if (!mpt_eval(state->model, params.n_threads, state->tokens.size()-1, batch, state->logits, state->mem_per_token)) {
-                LM_COTHROW("Failed to evaluate new tokens", "");
+            // Tick
+            if (on_tick && !pre_tick(str.data())) abort = true;
+            else {
+                // Evaluate token
+                //  TODO: Respect batch size
+                std::vector<int> batch(state->tokens.begin()+state->tokens.size()-1, state->tokens.begin()+state->tokens.size());
+                if (!mpt_eval(state->model, params.n_threads, state->tokens.size()-1, batch, state->logits, state->mem_per_token)) {
+                    LM_COTHROW("Failed to evaluate new tokens", "");
+                }
             }
 
             // Tick

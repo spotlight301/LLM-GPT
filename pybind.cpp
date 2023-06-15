@@ -32,7 +32,7 @@ PYBIND11_MODULE(justlm_py, m) {
     py::class_<Inference>(m, "Inference")
         .def_static("construct", &Inference::construct, py::arg("weights_path"), py::arg("params") = Inference::Params())
         .def("append", &Inference::append, py::arg("prompt"), py::arg("on_tick") = nullptr)
-        .def("run", &Inference::run, py::arg("end") = "", py::arg("on_tick") = nullptr)
+        .def("run", &Inference::run, py::arg("end") = "", py::arg("on_tick") = nullptr, py::arg("pre_tick") = nullptr)
         .def("create_savestate", &Inference::create_savestate)
         .def("restore_savestate", &Inference::restore_savestate)
         .def("get_prompt", &Inference::get_prompt)
