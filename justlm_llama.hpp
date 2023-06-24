@@ -208,7 +208,9 @@ public:
         // Loop until done
         bool abort = false;
         unsigned eos_count = 0;
+        size_t last_size = 0;
         while (!abort && (end.empty() || fres.find(end) == fres.npos)) {
+            last_size = fres.size();
             // Sample top p and top k
             int id;
             try {
@@ -257,7 +259,7 @@ public:
 
         // Create final string  TODO: Could be optimized
         if (!abort && fres.size() > end.size()) {
-            fres = std::string(fres.data(), fres.size()-end.size());
+            fres = std::string(fres.data(), last_size);
         }
 
         // Return final string

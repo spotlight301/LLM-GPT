@@ -177,7 +177,9 @@ public:
         // Loop until done
         bool abort = false;
         unsigned eos_count = 0;
+        size_t last_size = 0;
         while (!abort && (end.empty() || fres.find(end) == fres.npos)) {
+            last_size = fres.size();
             // Sample top p and top k
             const auto n_repeat_last = std::min<size_t>(state->tokens.size(), params.n_repeat_last);
             auto id = gpt_sample_top_k_top_p(state->model.hparams.n_vocab, state->tokens.data()+state->tokens.size()-n_repeat_last, n_repeat_last, state->logits, params.top_k, params.top_p, params.temp, params.repeat_penalty, state->rng);
@@ -227,7 +229,7 @@ public:
 
         // Create final string  TODO: Could be optimized
         if (!abort) {
-            fres = std::string(fres.data(), fres.size()-end.size());
+            fres = std::string(fres.data(), last_size);
         }
 
         // Return final string
