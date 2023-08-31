@@ -238,7 +238,7 @@ public:
             fres.append(str);
 
             // Tick
-            if (on_tick && !pre_tick(str.data())) abort = true;
+            if (pre_tick && !pre_tick(str.data())) abort = true;
             else {
                 // Evaluate token
                 //  TODO: Respect batch size
