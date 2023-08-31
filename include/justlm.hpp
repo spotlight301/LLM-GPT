@@ -147,9 +147,17 @@ public:
     virtual LM_SCHEDULABLE(LM_ERRBOOL) serialize(std::ostream&) const LM_NOEXCEPTDECL = 0;
     virtual LM_SCHEDULABLE(LM_ERRBOOL) deserialize(std::istream&) LM_NOEXCEPTDECL = 0;
 
+    virtual LM_SCHEDULABLE(LM_ERRBOOL) load_grammar(const std::string&, bool override_temperature [[maybe_unused]] = false) LM_NOEXCEPTDECL {
+        LM_COTHROW("Grammar is not available for this models backend", LM_BOOL_ERROR);
+    }
+    virtual LM_SCHEDULABLE(LM_ERRBOOL) unload_grammar() LM_NOEXCEPTDECL {
+        LM_COTHROW("Grammar is not available for this models backend", LM_BOOL_ERROR);
+    }
+
     virtual const std::string& get_prompt() const LM_NOEXCEPTDECL = 0;
 
     virtual bool is_mirostat_available() const noexcept {return false;}
+    virtual bool is_grammar_available() const noexcept {return false;}
 
     LM_LAST_ERROR_GETTER
 };

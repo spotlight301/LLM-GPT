@@ -332,7 +332,9 @@ function(include_ggml DIRECTORY SUFFIX WITH_LLAMA)
     if (WITH_LLAMA)
         SET(LLAMA_SOURCES
             ${DIRECTORY}/llama.cpp
-            ${DIRECTORY}/llama.h)
+            ${DIRECTORY}/llama.h
+            ${DIRECTORY}/common/grammar-parser.h
+            ${DIRECTORY}/common/grammar-parser.cpp)
         remove_nonexistent(LLAMA_SOURCES)
         add_library(llama${SUFFIX} ${LLAMA_SOURCES})
 
