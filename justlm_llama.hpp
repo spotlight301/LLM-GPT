@@ -37,7 +37,7 @@ class LLaMAInference final : public Inference {
 
         // Create context
         state->model = llama_load_model_from_file(weights_path.c_str(), lparams);
-        if (!state->ctx) {
+        if (!state->model) {
             LM_THROW("Failed to initialize llama model from file", LM_BOOL_ERROR);
         }
         state->ctx = llama_new_context_with_model(state->model, lparams);

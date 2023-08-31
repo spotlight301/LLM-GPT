@@ -57,8 +57,7 @@ endif()
 if (LM_LLAMA)
     add_library(justlm_llama SHARED llama.cpp justlm_llama.hpp)
     target_link_libraries(justlm_llama PRIVATE ggml_mainline llama_mainline)
-    target_compile_definitions(justlm_llama PRIVATE
-        LLAMA_VERSIONS=>=3 LLAMA_DATE=999999)
+    target_compile_definitions(justlm_llama PRIVATE LLAMA_DATE=999999)
     target_justlm_setup(justlm_llama)
 endif()
 
