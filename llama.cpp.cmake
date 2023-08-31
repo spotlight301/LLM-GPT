@@ -306,6 +306,8 @@ function(include_ggml DIRECTORY SUFFIX WITH_LLAMA)
     set(GGML_SOURCES
         ${DIRECTORY}/ggml.c
         ${DIRECTORY}/ggml.h
+        ${DIRECTORY}/ggml-alloc.c
+        ${DIRECTORY}/ggml-alloc.h
         ${GGML_SOURCES_QUANT_K}
         ${GGML_SOURCES_CUDA}
         ${GGML_METAL_SOURCES}
@@ -328,16 +330,9 @@ function(include_ggml DIRECTORY SUFFIX WITH_LLAMA)
     endif()
 
     if (WITH_LLAMA)
-        # Backwards compatibility with old llama.cpp versions
-        set(LLAMA_UTIL_SOURCE_FILE llama-util.h)
-        if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${DIRECTORY}/${LLAMA_UTIL_SOURCE_FILE})
-            set(LLAMA_UTIL_SOURCE_FILE llama_util.h)
-        endif()
-
         SET(LLAMA_SOURCES
             ${DIRECTORY}/llama.cpp
-            ${DIRECTORY}/llama.h
-            ${DIRECTORY}/${LLAMA_UTIL_SOURCE_FILE})
+            ${DIRECTORY}/llama.h)
         remove_nonexistent(LLAMA_SOURCES)
         add_library(llama${SUFFIX} ${LLAMA_SOURCES})
 
