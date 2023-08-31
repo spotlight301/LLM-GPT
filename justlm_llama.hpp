@@ -9,6 +9,7 @@ namespace LM {
 class LLaMAInference final : public Inference {
     struct State {
         llama_context *ctx = nullptr;
+        struct llama_model *model;
         std::string prompt; // Mostly here for easy "debugging"
         std::vector<int> tokens;
         unsigned n_ctx;
@@ -32,14 +33,16 @@ class LLaMAInference final : public Inference {
         lparams.seed = params.seed;
         lparams.n_ctx = params.n_ctx = params.n_ctx>0?params.n_ctx:2024;
         lparams.use_mlock = params.use_mlock;
-#if LLAMA_DATE >= 230519
         lparams.n_gpu_layers = params.n_gpu_layers;
-#endif
 
         // Create context
-        state->ctx = llama_init_from_file(weights_path.c_str(), lparams);
+        state->model = llama_load_model_from_file(weights_path.c_str(), lparams);
         if (!state->ctx) {
-            LM_THROW("Failed to initialize llama from file", LM_BOOL_ERROR);
+            LM_THROW("Failed to initialize llama model from file", LM_BOOL_ERROR);
+        }
+        state->ctx = llama_new_context_with_model(state->model, lparams);
+        if (!state->ctx) {
+            LM_THROW("Failed to initialize llama context from model", LM_BOOL_ERROR);
         }
 
         // Initialize some variables
@@ -114,7 +117,6 @@ class LLaMAInference final : public Inference {
         LM_CORETURN LM_BOOL_SUCCESS;
     }
 
-#if LLAMA_DATE >= 230519
     int llama_sample_top_p_top_k() {
         auto& state = get_state();
         auto logits = llama_get_logits(state->ctx);
@@ -153,13 +155,6 @@ class LLaMAInference final : public Inference {
         default: LM_THROW("Invalid mirostat version "+std::to_string(params.prefer_mirostat), LM_BOOL_ERROR);
         }
     }
-#else
-    int llama_sample_top_p_top_k() {
-        auto& state = get_state();
-        auto n_repeat_last = std::min<size_t>(state->tokens.size(), params.n_repeat_last);
-        return ::llama_sample_top_p_top_k(state->ctx, params.n_repeat_last?(state->tokens.data()+state->tokens.size()-n_repeat_last):nullptr, n_repeat_last, params.top_k, params.top_p, params.temp, params.repeat_penalty);
-    }
-#endif
 
 public:
     LLaMAInference(const std::string& weights_path, const Params& p) : Inference(p) {
@@ -219,7 +214,7 @@ public:
                 LM_COTHROW(e.what(), "");
             }
 
-            if (id == llama_token_eos()) {
+            if (id == llama_token_eos(state->ctx)) {
                 if (eos_count++ == params.n_eos_ignores) {
                     abort = true;
                     continue;
@@ -236,7 +231,7 @@ public:
             LM_COAWAIT window_scroll();
 
             // Get token as string
-            const std::string_view str = llama_token_to_str(state->ctx, id);
+            const std::string_view str = llama_token_get_text(state->ctx, id);
 
             // Append string to function result
             state->prompt.append(str);
