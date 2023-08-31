@@ -347,10 +347,8 @@ public:
         return get_state()->prompt;
     }
 
-#if LLAMA_DATE >= 230519
     bool is_mirostat_available() const noexcept override {
         return true;
     }
-#endif
 };
 }

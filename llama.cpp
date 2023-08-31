@@ -30,3 +30,14 @@ LM::Inference *construct(const std::string &weights_path, std::ifstream& f, cons
     return new LM::LLaMAInference(weights_path, p);
 }
 }
+
+
+__attribute__((constructor))
+static void init() {
+    llama_backend_init(true);
+}
+
+__attribute__((destructor))
+static void deinit() {
+    llama_backend_free();
+}
