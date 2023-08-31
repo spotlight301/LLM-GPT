@@ -231,7 +231,8 @@ public:
             LM_COAWAIT window_scroll();
 
             // Get token as string
-            const std::string_view str = llama_token_get_text(state->ctx, id);
+            std::string str(14, ' ');
+            str.resize(llama_token_to_piece(state->ctx, id, str.data(), 14));
 
             // Append string to function result
             state->prompt.append(str);
