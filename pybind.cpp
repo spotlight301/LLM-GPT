@@ -38,6 +38,9 @@ PYBIND11_MODULE(justlm_py, m) {
         .def("get_prompt", &Inference::get_prompt)
         .def("get_context_size", &Inference::get_context_size)
         .def("is_mirostat_available", &Inference::is_mirostat_available)
+        .def("is_grammar_available", &Inference::is_grammar_available)
+        .def("load_grammar", &Inference::load_grammar)
+        .def("unload_grammar", &Inference::unload_grammar)
         .def_readwrite("params", &Inference::params);
     py::class_<Inference::Savestate>(m, "Savestate")
         .def(py::init<>());
