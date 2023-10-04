@@ -314,6 +314,7 @@ function(include_ggml DIRECTORY SUFFIX WITH_LLAMA)
         ${GGML_OPENCL_SOURCES})
     remove_nonexistent(GGML_SOURCES)
     add_library(ggml${SUFFIX} OBJECT ${GGML_SOURCES})
+    target_compile_definitions(ggml${SUFFIX} PRIVATE _GNU_SOURCE)
 
     if (LLAMA_K_QUANTS)
         target_compile_definitions(ggml${SUFFIX} PUBLIC GGML_USE_K_QUANTS)

@@ -36,14 +36,21 @@ class LLaMAInference final : public Inference {
         auto lparams = llama_context_default_params();
         lparams.seed = params.seed;
         lparams.n_ctx = params.n_ctx = params.n_ctx>0?params.n_ctx:2024;
-        lparams.use_mlock = params.use_mlock;
-        lparams.n_gpu_layers = params.n_gpu_layers;
+        lparams.n_threads = params.n_threads;
+        //lparams.n_threads_batch = params.n_threads;  TODO: Is this sane?
 
-        // Create context
-        state->model = llama_load_model_from_file(weights_path.c_str(), lparams);
+        // Get model parameters
+        auto mparams = llama_model_default_params();
+        mparams.use_mlock = params.use_mlock;
+        mparams.n_gpu_layers = params.n_gpu_layers;
+
+        // Load model
+        state->model = llama_load_model_from_file(weights_path.c_str(), mparams);
         if (!state->model) {
             LM_THROW("Failed to initialize llama model from file", LM_BOOL_ERROR);
         }
+
+        // Create context
         state->ctx = llama_new_context_with_model(state->model, lparams);
         if (!state->ctx) {
             LM_THROW("Failed to initialize llama context from model", LM_BOOL_ERROR);
@@ -92,7 +99,8 @@ class LLaMAInference final : public Inference {
             if (it + params.n_batch >= ssize_t(state->tokens.size())) break;
 
             // Evaluate
-            if (llama_eval(state->ctx, state->tokens.data()+it, params.n_batch, it, params.n_threads)) {
+            const auto batch = llama_batch_get_one(state->tokens.data()+it, params.n_batch, it, 0);
+            if (llama_decode(state->ctx, batch)) {
                 LM_COTHROW("Failed to evaluate tokens in batches", LM_BOOL_ERROR);
             }
 
@@ -109,7 +117,8 @@ class LLaMAInference final : public Inference {
         // Evaluate remaining tokens
         if (it < state->tokens.size()) {
             for (; it != state->tokens.size(); it++) {
-                if (llama_eval(state->ctx, state->tokens.data()+it, 1, it, params.n_threads)) {
+                const auto batch = llama_batch_get_one(state->tokens.data()+it, 1, it, 0);
+                if (llama_decode(state->ctx, batch)) {
                     LM_COTHROW("Failed to evaluate individual tokens", LM_BOOL_ERROR);
                 }
             }
@@ -131,7 +140,7 @@ class LLaMAInference final : public Inference {
     int llama_sample_top_p_top_k() {
         auto& state = get_state();
         auto logits = llama_get_logits(state->ctx);
-        auto n_vocab = llama_n_vocab(state->ctx);
+        auto n_vocab = llama_n_vocab(state->model);
         // Populate initial list of all candidates
         std::vector<llama_token_data> candidates;
         candidates.reserve(n_vocab);
@@ -154,18 +163,18 @@ class LLaMAInference final : public Inference {
                 llama_sample_tail_free(state->ctx, &candidates_p, 1.0f, 1);
                 llama_sample_typical(state->ctx, &candidates_p, 1.0f, 1);
                 llama_sample_top_p(state->ctx, &candidates_p, params.top_p, 1);
-                llama_sample_temperature(state->ctx, &candidates_p, params.temp);
+                llama_sample_temp(state->ctx, &candidates_p, params.temp);
                 return accept_token(llama_sample_token(state->ctx, &candidates_p));
             }
             case 1: {
                 float mirostat_mu = 2.0f * params.mirostat_target_entropy;
                 const int mirostat_m = 100;
-                llama_sample_temperature(state->ctx, &candidates_p, params.temp);
+                llama_sample_temp(state->ctx, &candidates_p, params.temp);
                 return accept_token(llama_sample_token_mirostat(state->ctx, &candidates_p, params.mirostat_target_entropy, params.mirostat_learning_rate, mirostat_m, &mirostat_mu));
             }
             case 2: {
                 float mirostat_mu = 2.0f * params.mirostat_target_entropy;
-                llama_sample_temperature(state->ctx, &candidates_p, params.temp);
+                llama_sample_temp(state->ctx, &candidates_p, params.temp);
                 return accept_token(llama_sample_token_mirostat_v2(state->ctx, &candidates_p, params.mirostat_target_entropy, params.mirostat_learning_rate, &mirostat_mu));
             }
             default: LM_THROW("Invalid mirostat version "+std::to_string(params.prefer_mirostat), LM_BOOL_ERROR);
@@ -203,7 +212,7 @@ public:
         state->tokens.resize(old_token_count+state->prompt.size());
 
         // Run tokenizer
-        const auto token_count = llama_tokenize(state->ctx, prompt.c_str(), state->tokens.data()+old_token_count, state->tokens.size()-old_token_count, was_empty);
+        const auto token_count = llama_tokenize(state->model, prompt.c_str(), prompt.size(), state->tokens.data()+old_token_count, state->tokens.size()-old_token_count, was_empty);
         state->tokens.resize(old_token_count+token_count);
 
         // Make sure token limit isn't being hit
@@ -240,7 +249,7 @@ public:
                     continue;
                 }
                 state->tokens.push_back(0);
-                llama_tokenize(state->ctx, "\n", &state->tokens.back(), 1, false);
+                llama_tokenize(state->model, "\n", 1, &state->tokens.back(), 1, false);
                 id = state->tokens.back();
             } else {
                 // Add token
@@ -252,7 +261,7 @@ public:
 
             // Get token as string
             std::string str(14, ' ');
-            str.resize(llama_token_to_piece(state->ctx, id, str.data(), 14));
+            str.resize(llama_token_to_piece(state->model, id, str.data(), 14));
 
             // Append string to function result
             state->prompt.append(str);
@@ -263,7 +272,8 @@ public:
             else {
                 // Evaluate token
                 //  TODO: Respect batch size
-                if (llama_eval(state->ctx, state->tokens.data()+state->tokens.size()-1, 1, state->tokens.size()-1, params.n_threads)) {
+                const auto batch = llama_batch_get_one(state->tokens.data()+state->tokens.size()-1, 1, state->tokens.size()-1, 0);
+                if (llama_decode(state->ctx, batch)) {
                     LM_COTHROW("Failed to evaluate new tokens", "");
                 }
             }
