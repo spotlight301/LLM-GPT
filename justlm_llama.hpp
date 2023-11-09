@@ -150,7 +150,7 @@ class LLaMAInference final : public Inference {
         llama_token_data_array candidates_p = {candidates.data(), candidates.size(), false};
         // Sample repeat penalty
         auto n_repeat_last = std::min<size_t>(state->tokens.size(), params.n_repeat_last);
-        llama_sample_repetition_penalty(state->ctx, &candidates_p, params.n_repeat_last?(state->tokens.data()+state->tokens.size()-n_repeat_last):nullptr, n_repeat_last, params.repeat_penalty);
+        llama_sample_repetition_penalties(state->ctx, &candidates_p, params.n_repeat_last?(state->tokens.data()+state->tokens.size()-n_repeat_last):nullptr, n_repeat_last, params.repeat_penalty, 1.0f, 1.0f); // Might be wrong
         // Grammar sampling
         if (state->grammar) {
             llama_sample_grammar(state->ctx, &candidates_p, state->grammar);
@@ -212,7 +212,7 @@ public:
         state->tokens.resize(old_token_count+state->prompt.size());
 
         // Run tokenizer
-        const auto token_count = llama_tokenize(state->model, prompt.c_str(), prompt.size(), state->tokens.data()+old_token_count, state->tokens.size()-old_token_count, was_empty);
+        const auto token_count = llama_tokenize(state->model, prompt.c_str(), prompt.size(), state->tokens.data()+old_token_count, state->tokens.size()-old_token_count, was_empty, false);
         state->tokens.resize(old_token_count+token_count);
 
         // Make sure token limit isn't being hit
@@ -243,13 +243,13 @@ public:
                 LM_COTHROW(e.what(), "");
             }
 
-            if (id == llama_token_eos(state->ctx)) {
+            if (id == llama_token_eos(state->model)) {
                 if (eos_count++ == params.n_eos_ignores) {
                     abort = true;
                     continue;
                 }
                 state->tokens.push_back(0);
-                llama_tokenize(state->model, "\n", 1, &state->tokens.back(), 1, false);
+                llama_tokenize(state->model, "\n", 1, &state->tokens.back(), 1, false, false);
                 id = state->tokens.back();
             } else {
                 // Add token

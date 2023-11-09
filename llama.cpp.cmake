@@ -274,33 +274,27 @@ function(include_ggml DIRECTORY SUFFIX WITH_LLAMA)
         endif()
     endif()
 
-    set(GGML_SOURCES_QUANT_K )
     set(GGML_METAL_SOURCES )
-    if (LLAMA_K_QUANTS)
-        set(GGML_SOURCES_QUANT_K
-            ${DIRECTORY}/k_quants.h
-            ${DIRECTORY}/k_quants.c)
 
-        if (LLAMA_METAL)
-            find_library(FOUNDATION_LIBRARY         Foundation              REQUIRED)
-            find_library(METAL_FRAMEWORK            Metal                   REQUIRED)
-            find_library(METALKIT_FRAMEWORK         MetalKit                REQUIRED)
-            find_library(METALPERFORMANCE_FRAMEWORK MetalPerformanceShaders REQUIRED)
+    if (LLAMA_METAL)
+        find_library(FOUNDATION_LIBRARY         Foundation              REQUIRED)
+        find_library(METAL_FRAMEWORK            Metal                   REQUIRED)
+        find_library(METALKIT_FRAMEWORK         MetalKit                REQUIRED)
+        find_library(METALPERFORMANCE_FRAMEWORK MetalPerformanceShaders REQUIRED)
 
-            set(GGML_METAL_SOURCES ${DIRECTORY}/ggml-metal.m ${DIRECTORY}/ggml-metal.h)
-            # get full path to the file
-            #add_compile_definitions(GGML_METAL_DIR_KERNELS="${CMAKE_CURRENT_SOURCE_DIR}/")
+        set(GGML_METAL_SOURCES ${DIRECTORY}/ggml-metal.m ${DIRECTORY}/ggml-metal.h)
+        # get full path to the file
+        #add_compile_definitions(GGML_METAL_DIR_KERNELS="${CMAKE_CURRENT_SOURCE_DIR}/")
 
-            # copy ggml-metal.metal to bin directory
-            configure_file(${DIRECTORY}/ggml-metal.metal bin/ggml-metal.metal COPYONLY)
+        # copy ggml-metal.metal to bin directory
+        configure_file(${DIRECTORY}/ggml-metal.metal bin/ggml-metal.metal COPYONLY)
 
-            set(LLAMA_EXTRA_LIBS ${LLAMA_EXTRA_LIBS}
-                ${FOUNDATION_LIBRARY}
-                ${METAL_FRAMEWORK}
-                ${METALKIT_FRAMEWORK}
-                ${METALPERFORMANCE_FRAMEWORK}
-            )
-        endif()
+        set(LLAMA_EXTRA_LIBS ${LLAMA_EXTRA_LIBS}
+            ${FOUNDATION_LIBRARY}
+            ${METAL_FRAMEWORK}
+            ${METALKIT_FRAMEWORK}
+            ${METALPERFORMANCE_FRAMEWORK}
+        )
     endif()
 
     set(GGML_SOURCES
@@ -308,7 +302,10 @@ function(include_ggml DIRECTORY SUFFIX WITH_LLAMA)
         ${DIRECTORY}/ggml.h
         ${DIRECTORY}/ggml-alloc.c
         ${DIRECTORY}/ggml-alloc.h
-        ${GGML_SOURCES_QUANT_K}
+        ${DIRECTORY}/ggml-quants.c
+        ${DIRECTORY}/ggml-quants.h
+        ${DIRECTORY}/ggml-backend.c
+        ${DIRECTORY}/ggml-backend.h}
         ${GGML_SOURCES_CUDA}
         ${GGML_METAL_SOURCES}
         ${GGML_OPENCL_SOURCES})
