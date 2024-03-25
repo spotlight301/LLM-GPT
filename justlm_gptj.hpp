@@ -59,12 +59,12 @@ class GPTJInference final : public Inference {
 
     // This function reduces the size of our tokens vector according to some parameters
     // All tokens will be evaluated if scrolling was needed and true will be returned
-    LM_SCHEDULABLE(bool) window_scroll() LM_NOEXCEPTDECL {
+    bool window_scroll() LM_NOEXCEPTDECL {
         auto &state = get_state();
         // Check that we actually need to scroll
         if (state->tokens.size() <= params.n_ctx) {
             // Nope
-            LM_CORETURN false;
+            return false;
         }
         // Start scrolling
         if (params.scroll_keep > 0.0f) {
@@ -81,11 +81,11 @@ class GPTJInference final : public Inference {
             state->tokens.resize(params.n_ctx_window_top_bar);
         }
         // Evaluate tokens
-        LM_ERROR_FORWARD(LM_COAWAIT evaluate_tokens(0, on_scroll), LM_BOOL_ERROR);
-        LM_CORETURN true;
+        LM_ERROR_FORWARD(evaluate_tokens(0, on_scroll), LM_BOOL_ERROR);
+        return true;
     }
 
-    LM_SCHEDULABLE(LM_ERRBOOL) evaluate_tokens(size_t starting_offset, const AppendCallback &on_tick = nullptr) LM_NOEXCEPTDECL {
+    LM_ERRBOOL evaluate_tokens(size_t starting_offset, const AppendCallback &on_tick = nullptr) LM_NOEXCEPTDECL {
         auto& state = get_state();
 
         // Evaluate tokens in batches
@@ -96,7 +96,7 @@ class GPTJInference final : public Inference {
             // Evaluate
             std::vector<int> batch(state->tokens.begin()+it, state->tokens.begin()+it+params.n_batch);
             if (!gptj_eval(state->model, params.n_threads, it, batch, state->logits, state->mem_per_token)) {
-                LM_COTHROW("Failed to evaluate tokens in batches", LM_BOOL_ERROR);
+                LM_THROW("Failed to evaluate tokens in batches", LM_BOOL_ERROR);
             }
 
             // Tick
@@ -104,8 +104,7 @@ class GPTJInference final : public Inference {
                 // Calculate progress
                 auto progress = float(it-starting_offset) / (state->tokens.size()-starting_offset) * 100.f;
                 // Tick and yield
-                if (!on_tick(progress)) LM_CORETURN LM_BOOL_SUCCESS;
-                else if (!LM_TASKYIELD) LM_CORETURN LM_BOOL_SUCCESS;
+                if (!on_tick(progress)) return LM_BOOL_SUCCESS;
             }
         }
 
@@ -115,7 +114,7 @@ class GPTJInference final : public Inference {
                 //TODO: This is extremely inefficient! Don't do that...
                 std::vector<int> batch(state->tokens.begin()+it, state->tokens.begin()+it+1);
                 if (!gptj_eval(state->model, params.n_threads, it, batch, state->logits, state->mem_per_token)) {
-                    LM_COTHROW("Failed to evaluate individual tokens", LM_BOOL_ERROR);
+                    LM_THROW("Failed to evaluate individual tokens", LM_BOOL_ERROR);
                 }
             }
         }
@@ -123,7 +122,7 @@ class GPTJInference final : public Inference {
         // Notify about completion
         if (on_tick) on_tick(100.f);
 
-        LM_CORETURN LM_BOOL_SUCCESS;
+        return LM_BOOL_SUCCESS;
     }
 
 public:
@@ -134,7 +133,7 @@ public:
         deinit();
     }
 
-    LM_SCHEDULABLE(LM_ERRBOOL) append(const std::string& prompt, const AppendCallback &on_tick) LM_NOEXCEPTDECL override {
+    LM_ERRBOOL append(const std::string& prompt, const AppendCallback &on_tick) LM_NOEXCEPTDECL override {
         auto& state = get_state();
 
         // Append to current prompt
@@ -152,16 +151,16 @@ public:
         );
 
         // Make sure token limit isn't being hit
-        if (LM_COAWAIT window_scroll()) {
+        if (window_scroll()) {
             // That function already has evaluated our tokens since scrolling was needed
-            LM_CORETURN LM_BOOL_SUCCESS;
+            return LM_BOOL_SUCCESS;
         }
 
         // Evaluate new tokens
-        LM_CORETURN LM_COAWAIT evaluate_tokens(old_token_count, on_tick);
+        return evaluate_tokens(old_token_count, on_tick);
     }
 
-    LM_SCHEDULABLE(std::string) run(std::string_view end, const GenerateCallback &on_tick, const GenerateCallback& pre_tick) LM_NOEXCEPTDECL override {
+    std::string run(std::string_view end, const GenerateCallback &on_tick, const GenerateCallback& pre_tick) LM_NOEXCEPTDECL override {
         auto& state = get_state();
         std::string fres;
 
@@ -187,7 +186,7 @@ public:
             state->tokens.push_back(id);
 
             // Make sure token limit isn't being hit
-            LM_COAWAIT window_scroll();
+            window_scroll();
 
             // Get token as string
             const std::string_view str = state->vocab.id_to_token[id];
@@ -202,13 +201,12 @@ public:
                 //  TODO: Respect batch size
                 std::vector<int> batch(state->tokens.begin()+state->tokens.size()-1, state->tokens.begin()+state->tokens.size());
                 if (!gptj_eval(state->model, params.n_threads, state->tokens.size()-1, batch, state->logits, state->mem_per_token)) {
-                    LM_COTHROW("Failed to evaluate new tokens", "");
+                    LM_THROW("Failed to evaluate new tokens", "");
                 }
             }
 
             // Tick
             if (on_tick && !on_tick(str.data())) abort = true;
-            else if (!LM_TASKYIELD) abort = true;
         }
 
         // Create final string  TODO: Could be optimized
@@ -217,59 +215,59 @@ public:
         }
 
         // Return final string
-        LM_CORETURN fres;
+        return fres;
     }
 
     unsigned get_context_size() const noexcept override {
         return get_state()->tokens.size();
     }
 
-    LM_SCHEDULABLE(LM_ERRBOOL) create_savestate(Savestate &sv) const LM_NOEXCEPTDECL override {
+    LM_ERRBOOL create_savestate(Savestate &sv) const LM_NOEXCEPTDECL override {
         auto& state = get_state();
         sv.buf.resize(gptj_get_state_size(state->model));
         gptj_copy_state_data(state->model, state->rng, sv.buf.data());
         sv.tokens = state->tokens;
         sv.prompt = state->prompt;
         sv.ctx = generic_state;
-        LM_CORETURN LM_BOOL_SUCCESS;
+        return LM_BOOL_SUCCESS;
     }
-    LM_SCHEDULABLE(LM_ERRBOOL) restore_savestate(const Savestate &sv) LM_NOEXCEPTDECL override {
+    LM_ERRBOOL restore_savestate(const Savestate &sv) LM_NOEXCEPTDECL override {
         auto& state = get_state();
         if (sv.ctx != generic_state)
-            LM_COTHROW("Savestate does not match context", LM_BOOL_ERROR);
+            LM_THROW("Savestate does not match context", LM_BOOL_ERROR);
         gptj_set_state_data(&state->model, &state->rng, sv.buf.data());
         state->tokens = sv.tokens;
         state->prompt = sv.prompt;
-        LM_CORETURN LM_BOOL_SUCCESS;
+        return LM_BOOL_SUCCESS;
     }
 
-    LM_SCHEDULABLE(LM_ERRBOOL) serialize(std::ostream &o) const LM_NOEXCEPTDECL override {
+    LM_ERRBOOL serialize(std::ostream &o) const LM_NOEXCEPTDECL override {
         auto& state = get_state();
         // Get state size
         auto state_size = gptj_get_state_size(state->model);
         // Write sizes
         for (const uint32_t s : {state->tokens.size(), state->prompt.size(), state_size}) {
             if (!o.write(reinterpret_cast<const char*>(&s), sizeof(s))) {
-                LM_COTHROW("Failed to serialize data sizes", LM_BOOL_ERROR);
+                LM_THROW("Failed to serialize data sizes", LM_BOOL_ERROR);
             }
         }
         // Write tokens
         if (!o.write(reinterpret_cast<const char*>(state->tokens.data()), state->tokens.size()*sizeof(int))) {
-            LM_COTHROW("Failed to serialize tokens", LM_BOOL_ERROR);
+            LM_THROW("Failed to serialize tokens", LM_BOOL_ERROR);
         }
         // Write prompt
         if (!o.write(state->prompt.data(), state->prompt.size())) {
-            LM_COTHROW("Failed to serialize prompt", LM_BOOL_ERROR);
+            LM_THROW("Failed to serialize prompt", LM_BOOL_ERROR);
         }
         // Write state
         std::vector<uint8_t> state_buf(state_size);
         gptj_copy_state_data(state->model, state->rng, state_buf.data());
         if (!o.write(reinterpret_cast<const char*>(state_buf.data()), state_size)) {
-            LM_COTHROW("Failed to serialize state", LM_BOOL_ERROR);
+            LM_THROW("Failed to serialize state", LM_BOOL_ERROR);
         }
-        LM_CORETURN LM_BOOL_SUCCESS;
+        return LM_BOOL_SUCCESS;
     }
-    LM_SCHEDULABLE(LM_ERRBOOL) deserialize(std::istream &i) LM_NOEXCEPTDECL override {
+    LM_ERRBOOL deserialize(std::istream &i) LM_NOEXCEPTDECL override {
         auto& state = get_state();
         uint32_t embd_size, prompt_size, state_size;
         // Initialization to prevent compiler complaints
@@ -277,26 +275,26 @@ public:
         // Read sizes
         for (uint32_t *s : {&embd_size, &prompt_size, &state_size}) {
             if (!i.read(reinterpret_cast<char*>(s), sizeof(*s))) {
-                LM_COTHROW("Failed to deserialize data sizes", LM_BOOL_ERROR);
+                LM_THROW("Failed to deserialize data sizes", LM_BOOL_ERROR);
             }
         }
         // Read tokens
         state->tokens.resize(embd_size);
         if (!i.read(reinterpret_cast<char*>(state->tokens.data()), state->tokens.size()*sizeof(int))) {
-            LM_COTHROW("Failed to deserialize tokens", LM_BOOL_ERROR);
+            LM_THROW("Failed to deserialize tokens", LM_BOOL_ERROR);
         }
         // Read prompt
         state->prompt.resize(prompt_size);
         if (!i.read(state->prompt.data(), state->prompt.size())) {
-            LM_COTHROW("Failed to deserialize prompt", LM_BOOL_ERROR);
+            LM_THROW("Failed to deserialize prompt", LM_BOOL_ERROR);
         }
         // Read state
         std::vector<uint8_t> state_buf(state_size);
         if (!i.read(reinterpret_cast<char*>(state_buf.data()), state_buf.size())) {
-            LM_COTHROW("Failed to deserialize state", LM_BOOL_ERROR);
+            LM_THROW("Failed to deserialize state", LM_BOOL_ERROR);
         }
         gptj_set_state_data(&state->model, &state->rng, state_buf.data());
-        LM_CORETURN LM_BOOL_SUCCESS;
+        return LM_BOOL_SUCCESS;
     }
     const std::string &get_prompt() const LM_NOEXCEPTDECL override {
         return get_state()->prompt;

@@ -7,35 +7,20 @@
 #include <memory>
 #include <thread>
 
-#ifdef LM_COSCHED
-#   include <scheduler.hpp>
-#   define LM_SCHEDULABLE(type) ::CoSched::AwaitableTask<type>
-#   define LM_CORETURN co_return
-#   define LM_COAWAIT co_await
-#   define LM_TASKYIELD (co_await ::CoSched::Task::get_current().yield())
-#else
-#   define LM_SCHEDULABLE(type) type
-#   define LM_CORETURN return
-#   define LM_COAWAIT
-#   define LM_TASKYIELD (true)
-#endif
-
 #ifdef LM_NOEXCEPT
 #   define LM_NOEXCEPTDECL noexcept
-#   define LM_THROW(t, r) this->last_error = (t); return r;
-#   define LM_COTHROW(t, r) this->last_error = (t); LM_CORETURN r;
+#   define LM_THROW(t, r) do {this->last_error = (t); return r;} while (0)
 #   define LM_LAST_ERROR_STORAGE mutable std::string last_error;
 #   define LM_LAST_ERROR_GETTER const std::string& get_last_error() const {return last_error;}
 #   define LM_ERRBOOL bool
 #   define LM_BOOL_ERROR false
 #   define LM_BOOL_SUCCESS true
-#   define LM_RETHROW(x) LM_CORETURN x;
+#   define LM_RETHROW(x) return x
 #   define LM_ERROR_CATCH(x, errval, ...) {auto v = x; if (v == (errval)) __VA_ARGS__}
-#   define LM_ERROR_FORWARD(x, errval) {auto v = x; if (v == (errval)) LM_CORETURN x;} 0
+#   define LM_ERROR_FORWARD(x, errval) do {auto v = x; if (v == (errval)) return x;} while (0)
 #else
 #   define LM_NOEXCEPTDECL
 #   define LM_THROW(t, r) throw Exception(t)
-#   define LM_COTHROW(t, r) throw Exception(t)
 #   define LM_LAST_ERROR_STORAGE
 #   define LM_LAST_ERROR_GETTER
 #   define LM_ERRBOOL void
@@ -44,12 +29,6 @@
 #   define LM_RETHROW(x) std::rethrow_exception(std::current_exception())
 #   define LM_ERROR_CATCH(x, errval, ...) try {x;} catch (...) __VA_ARGS__
 #   define LM_ERROR_FORWARD(x, errval) {x;}
-#endif
-
-#ifdef LM_COSCHED
-#ifndef LM_NOEXCEPT
-#warning Exceptions should not be enabled in combination with CoSched. Any exceptions thrown will lead to a std::terminate() call
-#endif
 #endif
 
 #if _MSC_VER
@@ -134,24 +113,24 @@ public:
     }
 
     // This must be called with a non-empty prompt!
-    virtual LM_SCHEDULABLE(LM_ERRBOOL) append(const std::string& prompt, const AppendCallback& on_tick = nullptr) LM_NOEXCEPTDECL = 0;
+    virtual LM_ERRBOOL append(const std::string& prompt, const AppendCallback& on_tick = nullptr) LM_NOEXCEPTDECL = 0;
 
     // append() must have been called at least once before calling this!
-    virtual LM_SCHEDULABLE(std::string) run(std::string_view end = "", const GenerateCallback& on_tick = nullptr, const GenerateCallback& pre_tick = nullptr) LM_NOEXCEPTDECL = 0;
+    virtual std::string run(std::string_view end = "", const GenerateCallback& on_tick = nullptr, const GenerateCallback& pre_tick = nullptr) LM_NOEXCEPTDECL = 0;
 
     virtual unsigned get_context_size() const noexcept = 0;
 
-    virtual LM_SCHEDULABLE(LM_ERRBOOL) create_savestate(Savestate&) const LM_NOEXCEPTDECL = 0;
-    virtual LM_SCHEDULABLE(LM_ERRBOOL) restore_savestate(const Savestate&) LM_NOEXCEPTDECL = 0;
+    virtual LM_ERRBOOL create_savestate(Savestate&) const LM_NOEXCEPTDECL = 0;
+    virtual LM_ERRBOOL restore_savestate(const Savestate&) LM_NOEXCEPTDECL = 0;
 
-    virtual LM_SCHEDULABLE(LM_ERRBOOL) serialize(std::ostream&) const LM_NOEXCEPTDECL = 0;
-    virtual LM_SCHEDULABLE(LM_ERRBOOL) deserialize(std::istream&) LM_NOEXCEPTDECL = 0;
+    virtual LM_ERRBOOL serialize(std::ostream&) const LM_NOEXCEPTDECL = 0;
+    virtual LM_ERRBOOL deserialize(std::istream&) LM_NOEXCEPTDECL = 0;
 
-    virtual LM_SCHEDULABLE(LM_ERRBOOL) load_grammar(const std::string&, bool override_temperature [[maybe_unused]] = false) LM_NOEXCEPTDECL {
-        LM_COTHROW("Grammar is not available for this models backend", LM_BOOL_ERROR);
+    virtual LM_ERRBOOL load_grammar(const std::string&, bool override_temperature [[maybe_unused]] = false) LM_NOEXCEPTDECL {
+        LM_THROW("Grammar is not available for this models backend", LM_BOOL_ERROR);
     }
-    virtual LM_SCHEDULABLE(LM_ERRBOOL) unload_grammar() LM_NOEXCEPTDECL {
-        LM_COTHROW("Grammar is not available for this models backend", LM_BOOL_ERROR);
+    virtual LM_ERRBOOL unload_grammar() LM_NOEXCEPTDECL {
+        LM_THROW("Grammar is not available for this models backend", LM_BOOL_ERROR);
     }
 
     virtual const std::string& get_prompt() const LM_NOEXCEPTDECL = 0;

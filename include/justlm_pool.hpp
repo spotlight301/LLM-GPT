@@ -63,21 +63,21 @@ class InferencePool {
     }
 
     // Returns false on error
-    LM_SCHEDULABLE(bool) store_slot(Slot& slot);
+    bool store_slot(Slot& slot);
     // Returns nullptr on error
-    LM_SCHEDULABLE(Slot*) load_slot(size_t id, Slot *suggested_slot = nullptr);
+    Slot *load_slot(size_t id, Slot *suggested_slot = nullptr);
 
-    LM_SCHEDULABLE(void) store_and_reset_slot(Slot& slot) {
-        LM_COAWAIT store_slot(slot); //TODO: Should handle errors somehow
+    void store_and_reset_slot(Slot& slot) {
+        store_slot(slot); //TODO: Should handle errors somehow
         slot.reset();
-        LM_CORETURN;
+        return;
     }
 
     // Doesn't fail
-    LM_SCHEDULABLE(Slot*) get_free_slot();
+    Slot *get_free_slot();
 
     // Returns nullptr if not found
-    LM_SCHEDULABLE(Slot*) find_slot_by_id(size_t id, bool deserialize = true);
+    Slot *find_slot_by_id(size_t id, bool deserialize = true);
 
 public:
     // The pool_name must be unique amonst all applications in cwd
@@ -93,14 +93,14 @@ public:
         }
     }
 
-    LM_SCHEDULABLE(std::shared_ptr<Inference>) create_inference(size_t id, const std::string& weights_path, const Inference::Params& p) {
-        auto slot = LM_COAWAIT get_free_slot();
-        LM_CORETURN slot->create_inference(id, weights_path, p);
+    std::shared_ptr<Inference> create_inference(size_t id, const std::string& weights_path, const Inference::Params& p) {
+        auto slot = get_free_slot();
+        return slot->create_inference(id, weights_path, p);
     }
-    LM_SCHEDULABLE(std::shared_ptr<Inference>) get_inference(size_t id);
-    LM_SCHEDULABLE(std::shared_ptr<Inference>) get_or_create_inference(size_t id, const std::string& weights_path, const Inference::Params& p);
-    LM_SCHEDULABLE(void) delete_inference(size_t id);
-    LM_SCHEDULABLE(void) store_all();
+    std::shared_ptr<Inference> get_inference(size_t id);
+    std::shared_ptr<Inference> get_or_create_inference(size_t id, const std::string& weights_path, const Inference::Params& p);
+    void delete_inference(size_t id);
+    void store_all();
     std::vector<size_t> get_active_slot_ids() const;
 
     void cleanup();
