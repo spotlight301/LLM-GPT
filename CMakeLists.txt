@@ -8,11 +8,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-set(LM_PYBIND No CACHE BOOL "If justlm Python bindings should be build")
-set(LM_NOEXCEPT No CACHE BOOL "If justlm exceptions should be disabled")
-set(LM_LLAMA Yes CACHE BOOL "If LLaMa model support should be built into justlm")
-set(LM_GPTJ Yes CACHE BOOL "If GPT-J model support should be built into justlm")
-set(LM_MPT Yes CACHE BOOL "If MPT model support should be built into justlm")
+option(LM_PYBIND "If justlm Python bindings should be build" OFF)
+option(LM_NOEXCEPT "If justlm exceptions should be disabled" OFF)
+option(LM_LLAMA "If LLaMa model support should be built into justlm" ON)
+option(LM_GPTJ "If GPT-J model support should be built into justlm" ON)
+option(LM_MPT "If MPT model support should be built into justlm" ON)
 
 
 function(target_justlm_setup TARGET_NAME)
